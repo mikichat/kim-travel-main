@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>✈️ 항공편 자동 변환기</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <script src="https://developers.kakao.com/sdk/js/kakao.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .gradient-bg {
+            background: linear-gradient(to bottom, #eff6ff, #ffffff);
+        }
+    </style>
+</head>
+<body class="gradient-bg min-h-screen">
+    <div class="flex flex-col items-center p-6">
+        <!-- Header -->
+        <header class="text-center mb-8 mt-4">
+            <h1 class="text-3xl md:text-4xl font-bold text-blue-900 mb-2">✈️ 항공편 자동 변환기</h1>
+            <p class="text-gray-600 text-sm md:text-base">여행사 직원용 항공 일정 변환 및 고객정보 출력 도구</p>
+        </header>
+
+        <!-- Main Content -->
+        <div class="w-full max-w-2xl space-y-4">
+            <!-- Input Section -->
+            <div class="bg-white rounded-xl shadow-md p-6">
+                <label class="block text-sm font-semibold text-gray-700 mb-2">항공편 정보 입력</label>
+                <textarea
+                    id="inputText"
+                    placeholder="예시:&#10;1 OZ 369T 14NOV 5 ICNCAN HK6 0820 1130 HRS&#10;2 OZ 370T 18NOV 2 CANICN HK6 1320 1755 HRS&#10;&#10;또는&#10;&#10;1  KE 711 U 03FEB 2 ICNNRT DK9  1325 1555  03FEB  E  0 73J L&#10;2  KE 704 L 09FEB 1 NRTICN DK9  1400 1640  09FEB  E  0 789 L"
+                    class="w-full p-4 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                    rows="5"
+                ></textarea>
+                <button
+                    id="convertBtn"
+                    class="w-full mt-4 bg-blue-700 hover:bg-blue-800 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition-colors duration-200"
+                >
+                    🔄 자동 변환하기
+                </button>
+            </div>
+
+            <!-- Output Section -->
+            <div id="outputSection" class="hidden fade-in">
+                <div id="captureArea" class="bg-white rounded-2xl shadow-lg p-6">
+                    <!-- Converted Result -->
+                    <div class="mb-6">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-3">변환 결과</h3>
+                        <div id="outputText" class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                            <pre class="whitespace-pre-wrap text-gray-800 text-sm font-mono"></pre>
+                        </div>
+                    </div>
+
+                    <!-- Customer Info Form -->
+                    <div class="border-t pt-6 space-y-4">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-3">고객 정보</h3>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                <input type="checkbox" id="showPnr" class="mr-2 w-4 h-4 text-blue-600 focus:ring-blue-500 rounded" />
+                                항공사 예약번호 표시
+                            </label>
+                            <div id="pnrInputWrapper" class="mt-2 ml-6 hidden">
+                                <input
+                                    type="text"
+                                    id="pnrInput"
+                                    placeholder="예약번호를 입력하세요 (예: ABC123XYZ)"
+                                    maxlength="10"
+                                    class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-lg font-semibold"
+                                />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">대표명</label>
+                            <input
+                                type="text"
+                                id="nameInput"
+                                placeholder="대표명을 입력하세요"
+                                class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">전화번호</label>
+                            <input
+                                type="tel"
+                                id="phoneInput"
+                                placeholder="010-1234-5678"
+                                class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">미팅 장소</label>
+                            <input
+                                type="text"
+                                id="meetingPlaceInput"
+                                placeholder="예: 인천공항 제1터미널 3층 J카운터 앞"
+                                class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <!-- 출발편 식사 -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    <input type="checkbox" id="showMealDeparture" class="mr-2 w-4 h-4 text-blue-600 focus:ring-blue-500 rounded" />
+                                    출발편 식사 표시
+                                </label>
+                                <div id="mealDepartureOptions" class="flex gap-4 mt-2 ml-6 hidden">
+                                    <label class="flex items-center gap-2 cursor-pointer">
+                                        <input type="radio" name="mealDeparture" value="포함" class="w-4 h-4 text-blue-600 focus:ring-blue-500" />
+                                        <span class="text-gray-700">포함</span>
+                                    </label>
+                                    <label class="flex items-center gap-2 cursor-pointer">
+                                        <input type="radio" name="mealDeparture" value="불포함" class="w-4 h-4 text-blue-600 focus:ring-blue-500" checked />
+                                        <span class="text-gray-700">불포함</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- 도착편 식사 -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    <input type="checkbox" id="showMealArrival" class="mr-2 w-4 h-4 text-blue-600 focus:ring-blue-500 rounded" />
+                                    도착편 식사 표시
+                                </label>
+                                <div id="mealArrivalOptions" class="flex gap-4 mt-2 ml-6 hidden">
+                                    <label class="flex items-center gap-2 cursor-pointer">
+                                        <input type="radio" name="mealArrival" value="포함" class="w-4 h-4 text-blue-600 focus:ring-blue-500" />
+                                        <span class="text-gray-700">포함</span>
+                                    </label>
+                                    <label class="flex items-center gap-2 cursor-pointer">
+                                        <input type="radio" name="mealArrival" value="불포함" class="w-4 h-4 text-blue-600 focus:ring-blue-500" checked />
+                                        <span class="text-gray-700">불포함</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6">
+                            <button
+                                id="copyBtn"
+                                class="flex items-center justify-center gap-2 px-4 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors duration-200 font-medium text-gray-700"
+                            >
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                                </svg>
+                                <span class="hidden sm:inline">복사</span>
+                            </button>
+                            <button
+                                id="imageBtn"
+                                class="flex items-center justify-center gap-2 px-4 py-2.5 border border-purple-300 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors duration-200 font-medium text-purple-700"
+                            >
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                                </svg>
+                                <span class="hidden sm:inline">이미지</span>
+                            </button>
+                            <button
+                                id="kakaoBtn"
+                                class="flex items-center justify-center gap-2 px-4 py-2.5 bg-yellow-400 hover:bg-yellow-500 rounded-lg transition-colors duration-200 font-medium text-gray-800"
+                            >
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M12 3c5.799 0 10.5 3.664 10.5 8.185 0 4.52-4.701 8.184-10.5 8.184a13.5 13.5 0 01-1.727-.11l-4.408 2.883c-.501.265-.678.236-.472-.413l.892-3.678c-2.88-1.46-4.785-3.99-4.785-6.866C1.5 6.665 6.201 3 12 3z"/>
+                                </svg>
+                                <span class="hidden sm:inline">카톡</span>
+                            </button>
+                            <button
+                                id="pdfBtn"
+                                class="flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-700 hover:bg-gray-800 text-white rounded-lg transition-colors duration-200 font-medium"
+                            >
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                </svg>
+                                <span class="hidden sm:inline">PDF</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="mt-12 text-sm text-gray-500">
+            © 2025 여행세상 | Flight Schedule Converter
+        </footer>
+    </div>
+
+    <script src="js/main.js"></script>
+</body>
+</html>

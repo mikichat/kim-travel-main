@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir /b \"c:\\Users\\kgj12\\Root\\hanatour\\itinerary\")",
+      "Bash(node:*)",
+      "Bash(dir /B *.js 2)",
+      "Bash(nul)",
+      "Bash(tree:*)",
+      "Bash(npm install)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
