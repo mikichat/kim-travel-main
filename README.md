@@ -31,17 +31,19 @@
 │   ├── index.html          # 항공편 변환기 UI
 │   └── js/main.js          # 변환 및 공유 로직
 │
-├── backend/                # 백엔드 서버
-│   └── server.js           # Express.js 기반의 간단한 API 서버
+├── backend/                # 백엔드 서버 및 데이터베이스
+│   ├── server.js           # Express.js 기반의 RESTful API 서버
+│   ├── database.js         # SQLite 데이터베이스 초기화 및 스키마 정의
+│   └── travel_agency.db    # SQLite 데이터베이스 파일 (자동 생성)
 │
 ├── itinerary/              # 생성된 여행 일정표 관련 파일
-└── ...
+└── start.bat               # 백엔드 및 프론트엔드 서버를 한 번에 시작하는 스크립트
 ```
 
 ## 기술 스택
 
 - **프론트엔드:** HTML, CSS, JavaScript (ES6+)
-- **백엔드:** Node.js, Express.js
+- **백엔드:** Node.js, Express.js, **SQLite3** (데이터베이스)
 - **주요 라이브러리:**
   - **Chart.js:** 데이터 시각화 차트
   - **SheetJS (XLSX):** 엑셀 파일 가져오기/내보내기
@@ -49,22 +51,34 @@
   - **Tailwind CSS:** 항공편 변환기 UI 스타일링
   - **jsPDF & html2canvas:** PDF 및 이미지 생성
   - **Kakao SDK:** 카카오톡 공유 기능
+  - **CORS:** 프론트엔드와 백엔드 간 통신 허용
 
 ## 시작하기
 
-### 1. 백엔드 서버 실행
-백엔드 서버는 `Express.js`로 구성되어 있습니다.
+이 프로젝트는 `start.bat` 스크립트를 통해 백엔드와 프론트엔드 서버를 쉽게 실행할 수 있습니다.
+
+### 1. 필수 요구사항
+- **Node.js 및 npm:** 시스템에 Node.js와 npm이 설치되어 있어야 합니다.
+
+### 2. 프로젝트 실행
+프로젝트 루트 디렉토리에서 `start.bat` 파일을 더블클릭하여 실행합니다.
+
 ```bash
-cd backend
-npm install
-npm start
+# 프로젝트 루트 디렉토리에서
+start.bat
 ```
-서버가 `http://localhost:5000`에서 실행됩니다.
 
-### 2. 프론트엔드 애플리케이션 실행
-로컬 환경에서 웹 서버를 실행하여 `index.html` 또는 `air1/index.html` 파일에 접근합니다. (Live Server와 같은 VSCode 확장 프로그램을 사용하면 편리합니다.)
+스크립트는 다음 작업을 자동으로 수행합니다:
+- 백엔드에 필요한 Node.js 패키지(`npm install`)를 설치합니다.
+- 백엔드 서버(`backend/server.js`)를 새 명령 프롬프트 창에서 시작합니다.
+- SQLite 데이터베이스 파일(`backend/travel_agency.db`)을 초기화하고 필요한 테이블을 생성합니다.
+- 프론트엔드 서버(`npx serve .`)를 새 명령 프롬프트 창에서 시작합니다.
 
-- **여행사 관리 시스템:** `index.html`
-- **항공편 자동 변환기:** `air1/index.html`
+### 3. 애플리케이션 접속
+모든 서버가 성공적으로 시작되면, 웹 브라우저를 열고 다음 주소로 접속합니다:
+- **프론트엔드 (여행사 관리 시스템):** `http://localhost:3000` (또는 `start.bat` 실행 시 프론트엔드 서버 창에 표시되는 주소)
+- **백엔드 API:** `http://localhost:5000`
 
-**참고:** `air1/js/main.js` 파일 내의 `YOUR_KAKAO_JAVASCRIPT_KEY`를 실제 카카오 개발자 키로 변경해야 카카오톡 공유 기능이 정상적으로 동작합니다.
+**참고:**
+- `air1/js/main.js` 파일 내의 `YOUR_KAKAO_JAVASCRIPT_KEY`를 실제 카카오 개발자 키로 변경해야 카카오톡 공유 기능이 정상적으로 동작합니다.
+- `npx serve` 명령어가 `serve` 패키지 설치 여부를 물어볼 경우 `y`를 입력하고 엔터를 누르세요.
