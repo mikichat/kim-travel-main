@@ -39,6 +39,46 @@ const upload = multer({ storage: storage });
 
 // --- Gemini가 추가한 설정 종료 ---
 
+// --- Gemini가 추가한 동적 모델 선택 기능 ---
+
+/**
+ * 사용 가능한 최신 Gemini Flash 모델 이름을 가져옵니다.
+ * @param {string} apiKey - Google AI API 키
+ * @returns {Promise<string>} 최신 모델 이름 (예: "gemini-1.5-flash")
+ * @throws {Error} 모델 목록을 가져오거나 적합한 모델을 찾지 못한 경우
+ */
+async function getLatestFlashModel(apiKey) {
+    const url = `https://generativelanguage.googleapis.com/v1/models?key=${apiKey}`;
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`Google AI 모델 목록 API 호출 실패: ${response.statusText}`);
+        }
+        const data = await response.json();
+
+        const flashModels = data.models
+            .map(m => m.name.replace('models/', ''))
+            .filter(name => /gemini-\d+(\.\d+)?-flash/.test(name))
+            .sort()
+            .reverse();
+
+        if (flashModels.length > 0) {
+            console.log(`최신 Flash 모델 선택: ${flashModels[0]}`);
+            return flashModels[0];
+        } else {
+            throw new Error("사용 가능한 Gemini Flash 모델을 찾을 수 없습니다.");
+        }
+    } catch (error) {
+        console.error("최신 모델을 가져오는 중 오류 발생:", error);
+        // 안정적인 기본 모델로 대체
+        const fallbackModel = "gemini-1.5-flash";
+        console.warn(`기본 모델(${fallbackModel})을 사용합니다.`);
+        return fallbackModel;
+    }
+}
+
+// --- 동적 모델 선택 기능 종료 ---
+
 
 // 미들웨어 설정
 app.use(cors()); // CORS 허용
@@ -62,8 +102,9 @@ app.post('/api/upload', upload.single('schedule_file'), async (req, res) => {
         const worksheet = workbook.Sheets[sheetName];
         const dataString = xlsx.utils.sheet_to_csv(worksheet);
 
-        // 2. Gemini 모델 및 프롬프트 설정
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        // 2. Gemini 모델 및 프롬프트 설정 (동적으로 최신 모델 선택)
+        const modelName = await getLatestFlashModel(process.env.GEMINI_API_KEY);
+        const model = genAI.getGenerativeModel({ model: modelName });
         const prompt = `
             다음은 Excel 일정표에서 추출한 CSV 데이터입니다.
             이 데이터에서 일정 정보를 추출하여 JSON 배열 형태로 반환해 주세요.
