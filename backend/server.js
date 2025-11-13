@@ -7,6 +7,7 @@ const { initializeDatabase } = require('./database');
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
+const xlsx = require('xlsx');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const sqlite3 = require('sqlite3').verbose();
 require('dotenv').config();
@@ -61,16 +62,17 @@ async function getLatestFlashModel(apiKey) {
             .sort()
             .reverse();
 
-        if (flashModels.length > 0) {
+        if (flashModels.length > 10) {
             console.log(`최신 Flash 모델 선택: ${flashModels[0]}`);
             return flashModels[0];
+            //return "gemini-2.5-flash";
         } else {
             throw new Error("사용 가능한 Gemini Flash 모델을 찾을 수 없습니다.");
         }
     } catch (error) {
         console.error("최신 모델을 가져오는 중 오류 발생:", error);
         // 안정적인 기본 모델로 대체
-        const fallbackModel = "gemini-2.5-flash-lite";
+        const fallbackModel = "gemini-2.5-flash";
         console.warn(`기본 모델(${fallbackModel})을 사용합니다.`);
         return fallbackModel;
     }
@@ -104,34 +106,32 @@ app.post('/api/upload', upload.single('schedule_file'), async (req, res) => {
     }
 
     const filePath = req.file.path;
-    const mimeType = req.file.mimetype;
 
     try {
-        // 1. 파일을 Base64로 인코딩 (info.txt 방식 적용)
-        const fileBuffer = fs.readFileSync(filePath);
-        const base64Data = fileBuffer.toString('base64');
+        // 1. XLSX 파일을 읽어 'HTML' 텍스트로 변환 (info.txt 방식 적용)
+        const workbook = xlsx.readFile(filePath);
+        const sheetName = workbook.SheetNames[0]; // 첫 번째 시트
+        const worksheet = workbook.Sheets[sheetName];
+        const htmlData = xlsx.utils.sheet_to_html(worksheet, { header: '' });
 
-        // 2. Gemini API에 전송할 파일 파트 생성
-        const filePart = {
-            inlineData: {
-                data: base64Data,
-                mimeType: mimeType,
-            },
-        };
-
-        // 3. Gemini 모델 및 프롬프트 설정 (동적으로 최신 모델 선택)
+        // 2. Gemini 모델 및 프롬프트 설정 (동적으로 최신 모델 선택)
         const modelName = await getLatestFlashModel(process.env.GEMINI_API_KEY);
         const model = genAI.getGenerativeModel({ model: modelName });
         const prompt = `
-            첨부된 Excel (xlsx) 파일에서 일정 데이터를 추출해줘.
-            결과는 반드시 다음 키를 포함하는 JSON 배열 형태로만 반환해줘:
-            ['event_name', 'event_date', 'location', 'description']
-            날짜는 'YYYY-MM-DD' 형식으로 통일하고, 알 수 없는 값은 null로 처리해줘.
-            JSON 데이터 외에 다른 설명은 절대 추가하지 마.
+            다음은 HTML <table> 형식의 일정표 데이터입니다.
+            이 HTML 구조(특히 colspan과 rowspan으로 병합된 셀)를 주의 깊게 분석해서,
+            각 일정 항목을 'event_name', 'event_date', 'location', 'description' 키를 가진 JSON 배열로 만들어주세요.
+
+            - 날짜는 'YYYY-MM-DD' 형식으로 통일해 주세요.
+            - 병합된 셀에 걸쳐 있는 일정은 날짜별로 개별 항목으로 나누거나, 시작일과 종료일을 명시해 주세요.
+            - JSON 데이터 외에 다른 설명(예: \`\`\`json)은 절대 추가하지 마세요.
+
+            [HTML 데이터]
+            ${htmlData}
         `;
 
-        // 4. Gemini API 호출 (프롬프트와 파일 파트 함께 전송)
-        const result = await model.generateContent([prompt, filePart]);
+        // 3. Gemini API 호출 (텍스트 프롬프트 전송)
+        const result = await model.generateContent(prompt);
         const response = result.response;
 
         if (!response) {
@@ -143,7 +143,7 @@ app.post('/api/upload', upload.single('schedule_file'), async (req, res) => {
             return res.status(500).send('Gemini API에서 유효한 응답을 받지 못했습니다.');
         }
         
-        // 5. Gemini 응답(JSON) 파싱
+        // 4. Gemini 응답(JSON) 파싱
         const responseText = response.text();
         const jsonString = responseText.replace(/```json|```/g, '').trim();
         
@@ -155,7 +155,7 @@ app.post('/api/upload', upload.single('schedule_file'), async (req, res) => {
             return res.status(500).send('데이터 형식 변환에 실패했습니다. Gemini가 반환한 내용을 확인하세요.');
         }
 
-        // 6. SQLite3에 데이터 저장
+        // 5. SQLite3에 데이터 저장
         const db = new sqlite3.Database('./travel_agency.db');
         let saved_count = 0;
         
@@ -183,6 +183,9 @@ app.post('/api/upload', upload.single('schedule_file'), async (req, res) => {
 
     } catch (error) {
         console.error("업로드 처리 중 오류 발생:", error);
+        if (error instanceof SyntaxError) {
+            console.error("Gemini가 유효한 JSON을 반환하지 않았습니다. 응답 텍스트:", error.message);
+        }
         res.status(500).send('서버 내부 오류가 발생했습니다.');
     } finally {
         // 업로드된 파일 삭제
