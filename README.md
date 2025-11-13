@@ -74,7 +74,7 @@
      |    Excel -> HTML 테이블로 변환
      v
 3. Gemini API
- (gemini-1.5-flash)
+ (gemini-2.5-flash)
      |
      | 💬 "이 HTML 테이블 분석해줘"
      |    (텍스트 프롬프트 전송)
