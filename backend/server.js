@@ -62,10 +62,9 @@ async function getLatestFlashModel(apiKey) {
             .sort()
             .reverse();
 
-        if (flashModels.length > 10) {
+        if (flashModels.length > 0) {
             console.log(`최신 Flash 모델 선택: ${flashModels[0]}`);
             return flashModels[0];
-            //return "gemini-2.5-flash";
         } else {
             throw new Error("사용 가능한 Gemini Flash 모델을 찾을 수 없습니다.");
         }
