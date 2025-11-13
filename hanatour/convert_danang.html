@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>견적서 데이터 변환기</title>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Malgun Gothic', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            background: #f8f9fa;
+            margin-bottom: 30px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .upload-area:hover {
+            background: #e9ecef;
+            border-color: #5568d3;
+        }
+
+        .upload-area.dragover {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+            color: white;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .btn-success {
+            background: #28a745;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .preview-section {
+            display: none;
+            margin-top: 30px;
+        }
+
+        .preview-section.active {
+            display: block;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+
+        th, td {
+            padding: 12px;
+            border: 1px solid #ddd;
+            text-align: left;
+        }
+
+        th {
+            background: #667eea;
+            color: white;
+        }
+
+        tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+
+        .info-box {
+            background: #e7f3ff;
+            border-left: 4px solid #2196F3;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        .info-box h3 {
+            color: #2196F3;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 견적서 데이터 변환기</h1>
+        <p class="subtitle">기존 견적서 엑셀 파일을 하나투어 템플릿 형식으로 자동 변환합니다</p>
+
+        <div class="info-box">
+            <h3>📋 사용 방법</h3>
+            <ol>
+                <li>견적서 엑셀 파일(.xlsx)을 업로드하세요</li>
+                <li>자동으로 데이터를 분석하여 미리보기를 보여줍니다</li>
+                <li>"하나투어 템플릿으로 변환" 버튼을 클릭하면 변환된 파일이 다운로드됩니다</li>
+                <li>변환된 파일을 하나투어 시스템에서 "엑셀 업로드" 기능으로 불러올 수 있습니다</li>
+            </ol>
+        </div>
+
+        <div class="upload-area" id="uploadArea">
+            <h2>📁 견적서 파일을 여기에 드래그하거나 클릭하여 선택하세요</h2>
+            <p style="margin-top: 10px; color: #666;">지원 형식: .xlsx, .xls</p>
+            <input type="file" id="fileInput" accept=".xlsx,.xls" style="display: none;">
+        </div>
+
+        <div id="alertBox"></div>
+
+        <div class="preview-section" id="previewSection">
+            <h2>📄 데이터 미리보기</h2>
+            <div id="previewContent"></div>
+
+            <div class="actions">
+                <button class="btn btn-primary" id="convertBtn">
+                    🔄 하나투어 템플릿으로 변환 및 다운로드
+                </button>
+                <button class="btn btn-success" id="resetBtn">
+                    🔄 다시 시작
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let originalData = null;
+        let convertedData = null;
+
+        // Upload area events
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+
+        uploadArea.addEventListener('click', () => fileInput.click());
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file) processFile(file);
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) processFile(file);
+        });
+
+        // Process Excel file
+        function processFile(file) {
+            if (!file.name.match(/\.(xlsx|xls)$/i)) {
+                showAlert('엑셀 파일(.xlsx, .xls)만 업로드 가능합니다.', 'error');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+
+                    originalData = jsonData;
+                    analyzeAndConvert(jsonData);
+
+                } catch (error) {
+                    console.error(error);
+                    showAlert('파일을 읽는 중 오류가 발생했습니다.', 'error');
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // Analyze and convert data
+        function analyzeAndConvert(data) {
+            // 견적서 데이터 추출 (실제 파일 구조에 맞게 조정 필요)
+            const converted = {
+                '상품코드': extractValue(data, '상품코드') || 'PKG' + Date.now(),
+                '상품명': extractValue(data, '상품명') || '다낭 패키지',
+                '목적지': extractValue(data, '목적지') || '다낭',
+                '여행기간': extractValue(data, '여행기간') || '3박 4일',
+                '출발도시': extractValue(data, '출발도시') || '인천',
+                '항공사': extractValue(data, '항공사') || '미정',
+                '성인가격': extractPrice(data, '성인') || 0,
+                '아동가격': extractPrice(data, '아동') || 0,
+                '유아가격': extractPrice(data, '유아') || 0,
+                '유류할증료': extractPrice(data, '유류') || 0,
+                '제세공과금': extractPrice(data, '제세') || 0,
+                '1인추가요금': extractPrice(data, '싱글') || 0,
+                '출발일1': '',
+                '잔여석1': '',
+                '호텔명1': extractValue(data, '호텔') || '',
+                '호텔등급1': '',
+                '호텔지역1': '',
+                'DAY1일차': 1,
+                'DAY1제목': '',
+                'DAY1상세': '',
+                'DAY1식사': '',
+                'DAY1숙박': '',
+                '포함사항': extractMultilineValue(data, '포함') || '',
+                '불포함사항': extractMultilineValue(data, '불포함') || '',
+                '특전': '',
+                '참고사항': '',
+                '쇼핑정보': '',
+                '선택관광1명칭': '',
+                '선택관광1가격': '',
+                '선택관광1설명': ''
+            };
+
+            convertedData = [converted];
+            showPreview(converted);
+        }
+
+        // Helper functions to extract data
+        function extractValue(data, keyword) {
+            for (let row of data) {
+                for (let i = 0; i < row.length; i++) {
+                    if (String(row[i]).includes(keyword)) {
+                        return row[i + 1] || row[i];
+                    }
+                }
+            }
+            return null;
+        }
+
+        function extractPrice(data, keyword) {
+            for (let row of data) {
+                for (let i = 0; i < row.length; i++) {
+                    const cell = String(row[i]);
+                    if (cell.includes(keyword)) {
+                        // 다음 셀이나 같은 행에서 숫자 찾기
+                        for (let j = i; j < row.length; j++) {
+                            const val = String(row[j]).replace(/[^0-9]/g, '');
+                            if (val && val.length > 3) {
+                                return parseInt(val);
+                            }
+                        }
+                    }
+                }
+            }
+            return 0;
+        }
+
+        function extractMultilineValue(data, keyword) {
+            let result = [];
+            let capturing = false;
+
+            for (let row of data) {
+                const rowText = row.join(' ');
+                if (rowText.includes(keyword)) {
+                    capturing = true;
+                    continue;
+                }
+                if (capturing) {
+                    if (rowText.trim() === '' || rowText.includes('불포함') || rowText.includes('특전')) {
+                        break;
+                    }
+                    result.push(rowText.trim());
+                }
+            }
+            return result.join('\n');
+        }
+
+        // Show preview
+        function showPreview(data) {
+            const preview = document.getElementById('previewContent');
+
+            let html = '<table><thead><tr><th>항목</th><th>값</th></tr></thead><tbody>';
+
+            for (let [key, value] of Object.entries(data)) {
+                html += `<tr><td><strong>${key}</strong></td><td>${value || '-'}</td></tr>`;
+            }
+
+            html += '</tbody></table>';
+            preview.innerHTML = html;
+
+            document.getElementById('previewSection').classList.add('active');
+            showAlert('데이터를 성공적으로 분석했습니다! 내용을 확인하고 변환해주세요.', 'success');
+        }
+
+        // Convert and download
+        document.getElementById('convertBtn').addEventListener('click', () => {
+            if (!convertedData) {
+                showAlert('변환할 데이터가 없습니다.', 'error');
+                return;
+            }
+
+            const ws = XLSX.utils.json_to_sheet(convertedData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, '변환된데이터');
+
+            const fileName = `hanatour_converted_${new Date().toISOString().split('T')[0]}.xlsx`;
+            XLSX.writeFile(wb, fileName);
+
+            showAlert('변환된 파일이 다운로드되었습니다! 하나투어 시스템에서 "엑셀 업로드"로 불러오세요.', 'success');
+        });
+
+        // Reset
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            originalData = null;
+            convertedData = null;
+            document.getElementById('previewSection').classList.remove('active');
+            document.getElementById('alertBox').innerHTML = '';
+            fileInput.value = '';
+        });
+
+        // Show alert
+        function showAlert(message, type) {
+            const alertBox = document.getElementById('alertBox');
+            alertBox.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+        }
+    </script>
+</body>
+</html>

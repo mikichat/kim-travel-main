@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>견적서 구조 분석기</title>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Malgun Gothic', monospace;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: #4ec9b0;
+            margin-bottom: 20px;
+        }
+
+        .upload-box {
+            background: #252526;
+            border: 2px dashed #4ec9b0;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 30px;
+            cursor: pointer;
+        }
+
+        .upload-box:hover {
+            background: #2d2d30;
+        }
+
+        .data-grid {
+            background: #252526;
+            border-radius: 10px;
+            padding: 20px;
+            overflow-x: auto;
+            margin-bottom: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+
+        th, td {
+            padding: 8px;
+            border: 1px solid #3e3e42;
+            text-align: left;
+            white-space: nowrap;
+        }
+
+        th {
+            background: #2d2d30;
+            color: #4ec9b0;
+            position: sticky;
+            top: 0;
+        }
+
+        tr:hover {
+            background: #2d2d30;
+        }
+
+        .row-number {
+            color: #858585;
+            font-weight: bold;
+        }
+
+        .cell-value {
+            color: #ce9178;
+        }
+
+        .cell-empty {
+            color: #858585;
+            font-style: italic;
+        }
+
+        .analysis-section {
+            background: #252526;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .analysis-section h2 {
+            color: #569cd6;
+            margin-bottom: 15px;
+        }
+
+        .keyword {
+            display: inline-block;
+            background: #264f78;
+            padding: 5px 10px;
+            border-radius: 5px;
+            margin: 5px;
+            color: #9cdcfe;
+        }
+
+        .btn {
+            background: #0e639c;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px;
+        }
+
+        .btn:hover {
+            background: #1177bb;
+        }
+
+        .btn-success {
+            background: #14ce14;
+        }
+
+        .btn-success:hover {
+            background: #16b116;
+        }
+
+        pre {
+            background: #1e1e1e;
+            padding: 15px;
+            border-radius: 5px;
+            border: 1px solid #3e3e42;
+            overflow-x: auto;
+            color: #d4d4d4;
+        }
+
+        .found-item {
+            margin: 10px 0;
+            padding: 10px;
+            background: #1e1e1e;
+            border-left: 3px solid #4ec9b0;
+            border-radius: 3px;
+        }
+
+        .found-item strong {
+            color: #4ec9b0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 견적서 구조 분석기</h1>
+        <p style="color: #858585; margin-bottom: 20px;">견적서 엑셀 파일을 업로드하여 데이터 구조를 분석하고, 하나투어 템플릿으로 변환할 수 있는 매핑 정보를 확인하세요.</p>
+
+        <div class="upload-box" id="uploadBox">
+            <h2>📁 견적서 파일 업로드</h2>
+            <p style="color: #858585; margin-top: 10px;">클릭하거나 파일을 드래그하세요</p>
+            <input type="file" id="fileInput" accept=".xlsx,.xls" style="display: none;">
+        </div>
+
+        <div id="resultsSection" style="display: none;">
+            <div class="analysis-section">
+                <h2>📊 파일 정보</h2>
+                <div id="fileInfo"></div>
+            </div>
+
+            <div class="analysis-section">
+                <h2>🔎 발견된 키워드</h2>
+                <div id="keywordResults"></div>
+            </div>
+
+            <div class="analysis-section">
+                <h2>🎯 추천 매핑</h2>
+                <div id="mappingResults"></div>
+            </div>
+
+            <div class="data-grid">
+                <h2 style="color: #569cd6; margin-bottom: 15px;">📋 전체 데이터 (처음 50행)</h2>
+                <div id="dataGrid"></div>
+            </div>
+
+            <button class="btn btn-success" id="exportMappingBtn">
+                💾 변환 코드 내보내기
+            </button>
+            <button class="btn" id="resetBtn">
+                🔄 다시 시작
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let excelData = null;
+        let mappingInfo = {};
+
+        const uploadBox = document.getElementById('uploadBox');
+        const fileInput = document.getElementById('fileInput');
+
+        uploadBox.addEventListener('click', () => fileInput.click());
+        uploadBox.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadBox.style.background = '#2d2d30';
+        });
+        uploadBox.addEventListener('dragleave', () => {
+            uploadBox.style.background = '#252526';
+        });
+        uploadBox.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadBox.style.background = '#252526';
+            const file = e.dataTransfer.files[0];
+            if (file) processFile(file);
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) processFile(file);
+        });
+
+        function processFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: '' });
+
+                    excelData = jsonData;
+                    analyzeData(jsonData, file.name, workbook.SheetNames);
+
+                } catch (error) {
+                    alert('파일 읽기 오류: ' + error.message);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function analyzeData(data, fileName, sheetNames) {
+            // 파일 정보
+            document.getElementById('fileInfo').innerHTML = `
+                <div class="found-item">
+                    <strong>파일명:</strong> ${fileName}<br>
+                    <strong>시트:</strong> ${sheetNames.join(', ')}<br>
+                    <strong>총 행 수:</strong> ${data.length}<br>
+                    <strong>총 열 수:</strong> ${Math.max(...data.map(row => row.length))}
+                </div>
+            `;
+
+            // 키워드 검색
+            const keywords = {
+                '상품정보': ['상품명', '상품코드', '패키지', '여행', '투어'],
+                '목적지': ['목적지', '지역', '국가', '도시', '다낭', '방콕', '파타야'],
+                '기간': ['박', '일', '기간', '일정'],
+                '가격': ['성인', '아동', '유아', '금액', '가격', '요금', '원'],
+                '항공': ['항공', '비행기', '출발', '도착', '인천', '김포'],
+                '호텔': ['호텔', '숙소', '리조트', '호텔명'],
+                '일정': ['일차', 'DAY', 'Day', '일정', '스케줄'],
+                '포함사항': ['포함', '포함사항', '포함내역'],
+                '불포함사항': ['불포함', '불포함사항', '제외'],
+                '선택관광': ['선택', '옵션', '추가'],
+                '유류할증료': ['유류', '유류할증'],
+                '제세공과금': ['제세', '공과'],
+                '싱글차지': ['싱글', '1인', '추가']
+            };
+
+            let foundKeywords = {};
+            let keywordHTML = '';
+
+            for (let [category, words] of Object.entries(keywords)) {
+                foundKeywords[category] = [];
+
+                for (let rowIdx = 0; rowIdx < data.length; rowIdx++) {
+                    for (let colIdx = 0; colIdx < data[rowIdx].length; colIdx++) {
+                        const cell = String(data[rowIdx][colIdx]).trim();
+
+                        for (let word of words) {
+                            if (cell.includes(word)) {
+                                foundKeywords[category].push({
+                                    row: rowIdx + 1,
+                                    col: colIdx + 1,
+                                    value: cell,
+                                    nextCell: data[rowIdx][colIdx + 1] || '',
+                                    nextRow: data[rowIdx + 1] ? data[rowIdx + 1][colIdx] : ''
+                                });
+                            }
+                        }
+                    }
+                }
+
+                if (foundKeywords[category].length > 0) {
+                    keywordHTML += `<div class="found-item">
+                        <strong>${category}:</strong><br>`;
+
+                    foundKeywords[category].slice(0, 5).forEach(found => {
+                        keywordHTML += `
+                            <span class="keyword">행${found.row}, 열${found.col}: "${found.value}"
+                            ${found.nextCell ? ` → "${found.nextCell}"` : ''}
+                            </span>`;
+                    });
+
+                    keywordHTML += `</div>`;
+                }
+            }
+
+            document.getElementById('keywordResults').innerHTML = keywordHTML || '<p style="color: #858585;">키워드를 찾지 못했습니다.</p>';
+
+            // 매핑 추천
+            let mappingHTML = '<pre>';
+            mappingHTML += '// 발견된 데이터 위치 기반 추천 매핑\n\n';
+            mappingHTML += 'const mapping = {\n';
+
+            for (let [category, items] of Object.entries(foundKeywords)) {
+                if (items.length > 0) {
+                    const first = items[0];
+                    mappingHTML += `  '${category}': { row: ${first.row}, col: ${first.col}, nextCell: "${first.nextCell}" },\n`;
+                }
+            }
+
+            mappingHTML += '};\n';
+            mappingHTML += '</pre>';
+
+            document.getElementById('mappingResults').innerHTML = mappingHTML;
+
+            // 데이터 그리드
+            let gridHTML = '<table><thead><tr><th>행</th>';
+
+            const maxCols = Math.max(...data.map(row => row.length));
+            for (let i = 0; i < Math.min(maxCols, 20); i++) {
+                gridHTML += `<th>${String.fromCharCode(65 + i)}</th>`;
+            }
+
+            gridHTML += '</tr></thead><tbody>';
+
+            data.slice(0, 50).forEach((row, rowIdx) => {
+                gridHTML += `<tr><td class="row-number">${rowIdx + 1}</td>`;
+
+                for (let colIdx = 0; colIdx < Math.min(maxCols, 20); colIdx++) {
+                    const cell = row[colIdx] || '';
+                    const displayValue = String(cell).substring(0, 50);
+                    const className = cell ? 'cell-value' : 'cell-empty';
+                    gridHTML += `<td class="${className}">${displayValue || '(빈 셀)'}</td>`;
+                }
+
+                gridHTML += '</tr>';
+            });
+
+            gridHTML += '</tbody></table>';
+
+            document.getElementById('dataGrid').innerHTML = gridHTML;
+
+            // Show results
+            document.getElementById('resultsSection').style.display = 'block';
+            mappingInfo = foundKeywords;
+        }
+
+        document.getElementById('exportMappingBtn').addEventListener('click', () => {
+            const code = `
+// 자동 생성된 변환 코드
+function convertQuoteToHanatour(data) {
+    const result = {
+        '상품코드': extractFromPosition(data, ${JSON.stringify(mappingInfo['상품정보']?.[0])}),
+        '상품명': extractFromPosition(data, ${JSON.stringify(mappingInfo['상품정보']?.[0])}),
+        '목적지': extractFromPosition(data, ${JSON.stringify(mappingInfo['목적지']?.[0])}),
+        '여행기간': extractFromPosition(data, ${JSON.stringify(mappingInfo['기간']?.[0])}),
+        '성인가격': extractPrice(data, ${JSON.stringify(mappingInfo['가격']?.[0])}),
+        '호텔명1': extractFromPosition(data, ${JSON.stringify(mappingInfo['호텔']?.[0])}),
+        '포함사항': extractFromPosition(data, ${JSON.stringify(mappingInfo['포함사항']?.[0])}),
+        '불포함사항': extractFromPosition(data, ${JSON.stringify(mappingInfo['불포함사항']?.[0])})
+    };
+    return result;
+}
+
+function extractFromPosition(data, position) {
+    if (!position) return '';
+    return data[position.row - 1]?.[position.col] || position.nextCell || '';
+}
+
+function extractPrice(data, position) {
+    if (!position) return 0;
+    const value = String(position.nextCell || '').replace(/[^0-9]/g, '');
+    return parseInt(value) || 0;
+}
+`;
+
+            const blob = new Blob([code], { type: 'text/javascript' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'conversion_mapping.js';
+            a.click();
+        });
+
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            document.getElementById('resultsSection').style.display = 'none';
+            excelData = null;
+            mappingInfo = {};
+            fileInput.value = '';
+        });
+    </script>
+</body>
+</html>
