@@ -3,12 +3,139 @@ const cors = require('cors');
 const crypto = require('crypto');
 const { initializeDatabase } = require('./database');
 
+// Gemini가 추가한 모듈
+const path = require('path');
+const fs = require('fs');
+const multer = require('multer');
+const xlsx = require('xlsx');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
+const sqlite3 = require('sqlite3').verbose();
+require('dotenv').config();
+
 const app = express();
 const port = 5000;
+
+// --- Gemini가 추가한 설정 시작 ---
+
+// .env 파일에서 API 키 설정
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+// 파일 업로드를 위한 uploads 폴더 생성
+const uploadDir = 'uploads';
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir);
+}
+
+// Multer 설정: 업로드된 파일을 'uploads/' 디렉토리에 저장
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, 'uploads/');
+    },
+    filename: function (req, file, cb) {
+        cb(null, Date.now() + '-' + file.originalname);
+    }
+});
+const upload = multer({ storage: storage });
+
+// --- Gemini가 추가한 설정 종료 ---
+
 
 // 미들웨어 설정
 app.use(cors()); // CORS 허용
 app.use(express.json({ limit: '10mb' })); // JSON 요청 본문 파싱 (용량 제한 10MB)
+
+
+// --- Gemini가 추가한 API 엔드포인트 시작 ---
+
+// POST /api/upload: Excel 파일을 받아 처리하는 메인 로직
+app.post('/api/upload', upload.single('schedule_file'), async (req, res) => {
+    if (!req.file) {
+        return res.status(400).send('파일이 업로드되지 않았습니다.');
+    }
+
+    const filePath = req.file.path;
+
+    try {
+        // 1. Pandas 대신 xlsx로 Excel 데이터를 텍스트(CSV)로 변환
+        const workbook = xlsx.readFile(filePath);
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const dataString = xlsx.utils.sheet_to_csv(worksheet);
+
+        // 2. Gemini 모델 및 프롬프트 설정
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const prompt = `
+            다음은 Excel 일정표에서 추출한 CSV 데이터입니다.
+            이 데이터에서 일정 정보를 추출하여 JSON 배열 형태로 반환해 주세요.
+            각 항목은 'event_name', 'event_date', 'location', 'description' 키를 가져야 합니다.
+            날짜 형식이 있다면 'YYYY-MM-DD'로 통일하고, 알 수 없는 값은 null로 처리해 주세요.
+            반드시 JSON 형식의 배열만 응답하고, 다른 설명이나 markdown 표기는 포함하지 마세요.
+
+            [데이터]
+            ${dataString}
+        `;
+
+        // 3. Gemini API 호출
+        const result = await model.generateContent(prompt);
+        const response = result.response;
+
+        if (!response) {
+            console.error("Gemini API 응답이 없습니다. 전체 결과:", result);
+            // 프롬프트 피드백 확인 (차단 여부 등)
+            if (result.promptFeedback) {
+                console.error("프롬프트 피드백:", result.promptFeedback);
+                return res.status(400).send(`데이터 생성에 실패했습니다. API 차단 사유: ${result.promptFeedback.blockReason}`);
+            }
+            return res.status(500).send('Gemini API에서 유효한 응답을 받지 못했습니다.');
+        }
+        
+        const jsonText = response.text().trim();
+        
+        let scheduleData;
+        try {
+            scheduleData = JSON.parse(jsonText);
+        } catch (e) {
+            console.error("Gemini가 반환한 텍스트가 유효한 JSON이 아닙니다:", jsonText);
+            return res.status(500).send('데이터 형식 변환에 실패했습니다. Gemini가 반환한 내용을 확인하세요.');
+        }
+
+        // 4. SQLite3에 데이터 저장
+        const db = new sqlite3.Database('./schedule.db');
+        let saved_count = 0;
+        
+        const stmt = db.prepare("INSERT INTO schedules (event_name, event_date, location, description) VALUES (?, ?, ?, ?)");
+
+        for (const item of scheduleData) {
+            stmt.run(
+                item.event_name,
+                item.event_date,
+                item.location,
+                item.description,
+                (err) => {
+                    if (!err) saved_count++;
+                }
+            );
+        }
+
+        stmt.finalize((err) => {
+            db.close();
+            if (err) {
+                return res.status(500).send('데이터베이스 저장 중 오류가 발생했습니다.');
+            }
+            res.send(`성공: 총 ${scheduleData.length}개의 일정 중 ${saved_count}개가 DB에 저장되었습니다.`);
+        });
+
+    } catch (error) {
+        console.error("업로드 처리 중 오류 발생:", error);
+        res.status(500).send('서버 내부 오류가 발생했습니다.');
+    } finally {
+        // 업로드된 파일 삭제
+        fs.unlinkSync(filePath);
+    }
+});
+
+// --- Gemini가 추가한 API 엔드포인트 종료 ---
+
 
 // 데이터베이스 초기화 및 서버 시작
 initializeDatabase().then(db => {
@@ -121,6 +248,11 @@ initializeDatabase().then(db => {
     // 서버 시작
     app.listen(port, () => {
         console.log(`백엔드 서버가 http://localhost:${port} 에서 실행 중입니다.`);
+    });
+
+    // Gemini가 추가한 라우트: /schedule-upload 접속 시 upload.html 제공
+    app.get('/schedule-upload', (req, res) => {
+        res.sendFile(path.join(__dirname, '../upload.html'));
     });
 
 }).catch(error => {
