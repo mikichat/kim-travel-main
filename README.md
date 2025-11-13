@@ -2,7 +2,7 @@
 
 [![Node.js](https://img.shields.io/badge/Node.js-18.x-green.svg)](https://nodejs.org/) [![Express.js](https://img.shields.io/badge/Express.js-4.x-blue.svg)](https://expressjs.com/) [![SQLite](https://img.shields.io/badge/SQLite-3-blue.svg)](https://www.sqlite.org/index.html)
 
-이 프로젝트는 복잡한 Excel(.xlsx) 여행 일정표를 AI를 통해 자동으로 분석하고, 구조화된 데이터로 변환하여 데이터베이스에 저장하는 웹 애플리케이션입니다. Google의 최신 언어 모델인 **Gemini 1.5 Flash/Pro**를 활용하여, 셀 병합과 같은 복잡한 구조를 가진 표도 정확하게 해석합니다.
+이 프로젝트는 복잡한 Excel(.xlsx) 여행 일정표를 AI를 통해 자동으로 분석하고, 구조화된 데이터로 변환하여 데이터베이스에 저장하는 웹 애플리케이션입니다. Google의 최신 언어 모델인 **Gemini 2.5 Flash/Pro**를 활용하여, 셀 병합과 같은 복잡한 구조를 가진 표도 정확하게 해석합니다.
 
 <br>
 
