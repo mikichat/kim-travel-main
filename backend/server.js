@@ -77,7 +77,18 @@ app.post('/api/upload', upload.single('schedule_file'), async (req, res) => {
 
         // 3. Gemini API 호출
         const result = await model.generateContent(prompt);
-        const response = await result.response;
+        const response = result.response;
+
+        if (!response) {
+            console.error("Gemini API 응답이 없습니다. 전체 결과:", result);
+            // 프롬프트 피드백 확인 (차단 여부 등)
+            if (result.promptFeedback) {
+                console.error("프롬프트 피드백:", result.promptFeedback);
+                return res.status(400).send(`데이터 생성에 실패했습니다. API 차단 사유: ${result.promptFeedback.blockReason}`);
+            }
+            return res.status(500).send('Gemini API에서 유효한 응답을 받지 못했습니다.');
+        }
+        
         const jsonText = response.text().trim();
         
         let scheduleData;
