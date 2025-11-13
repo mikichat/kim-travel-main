@@ -87,6 +87,15 @@ async function initializeDatabase() {
                 is_completed INTEGER DEFAULT 0,
                 created_at TEXT DEFAULT (datetime('now','localtime'))
             );
+
+            CREATE TABLE IF NOT EXISTS schedules (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_name TEXT,
+                event_date TEXT,
+                location TEXT,
+                description TEXT,
+                created_at TEXT DEFAULT (datetime('now','localtime'))
+            );
         `);
 
         console.log('모든 테이블이 성공적으로 준비되었습니다.');

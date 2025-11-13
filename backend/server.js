@@ -71,7 +71,7 @@ async function getLatestFlashModel(apiKey) {
     } catch (error) {
         console.error("최신 모델을 가져오는 중 오류 발생:", error);
         // 안정적인 기본 모델로 대체
-        const fallbackModel = "gemini-1.5-flash";
+        const fallbackModel = "gemini-2.5-flash-lite";
         console.warn(`기본 모델(${fallbackModel})을 사용합니다.`);
         return fallbackModel;
     }
@@ -141,7 +141,7 @@ app.post('/api/upload', upload.single('schedule_file'), async (req, res) => {
         }
 
         // 4. SQLite3에 데이터 저장
-        const db = new sqlite3.Database('./schedule.db');
+        const db = new sqlite3.Database('./travel_agency.db');
         let saved_count = 0;
         
         const stmt = db.prepare("INSERT INTO schedules (event_name, event_date, location, description) VALUES (?, ?, ?, ?)");
