@@ -7,7 +7,6 @@ const { initializeDatabase } = require('./database');
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
-const xlsx = require('xlsx');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const sqlite3 = require('sqlite3').verbose();
 require('dotenv').config();
@@ -105,35 +104,38 @@ app.post('/api/upload', upload.single('schedule_file'), async (req, res) => {
     }
 
     const filePath = req.file.path;
+    const mimeType = req.file.mimetype;
 
     try {
-        // 1. Pandas 대신 xlsx로 Excel 데이터를 텍스트(CSV)로 변환
-        const workbook = xlsx.readFile(filePath);
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const dataString = xlsx.utils.sheet_to_csv(worksheet);
+        // 1. 파일을 Base64로 인코딩 (info.txt 방식 적용)
+        const fileBuffer = fs.readFileSync(filePath);
+        const base64Data = fileBuffer.toString('base64');
 
-        // 2. Gemini 모델 및 프롬프트 설정 (동적으로 최신 모델 선택)
+        // 2. Gemini API에 전송할 파일 파트 생성
+        const filePart = {
+            inlineData: {
+                data: base64Data,
+                mimeType: mimeType,
+            },
+        };
+
+        // 3. Gemini 모델 및 프롬프트 설정 (동적으로 최신 모델 선택)
         const modelName = await getLatestFlashModel(process.env.GEMINI_API_KEY);
         const model = genAI.getGenerativeModel({ model: modelName });
         const prompt = `
-            다음은 Excel 일정표에서 추출한 CSV 데이터입니다.
-            이 데이터에서 일정 정보를 추출하여 JSON 배열 형태로 반환해 주세요.
-            각 항목은 'event_name', 'event_date', 'location', 'description' 키를 가져야 합니다.
-            날짜 형식이 있다면 'YYYY-MM-DD'로 통일하고, 알 수 없는 값은 null로 처리해 주세요.
-            반드시 JSON 형식의 배열만 응답하고, 다른 설명이나 markdown 표기는 포함하지 마세요.
-
-            [데이터]
-            ${dataString}
+            첨부된 Excel (xlsx) 파일에서 일정 데이터를 추출해줘.
+            결과는 반드시 다음 키를 포함하는 JSON 배열 형태로만 반환해줘:
+            ['event_name', 'event_date', 'location', 'description']
+            날짜는 'YYYY-MM-DD' 형식으로 통일하고, 알 수 없는 값은 null로 처리해줘.
+            JSON 데이터 외에 다른 설명은 절대 추가하지 마.
         `;
 
-        // 3. Gemini API 호출
-        const result = await model.generateContent(prompt);
+        // 4. Gemini API 호출 (프롬프트와 파일 파트 함께 전송)
+        const result = await model.generateContent([prompt, filePart]);
         const response = result.response;
 
         if (!response) {
             console.error("Gemini API 응답이 없습니다. 전체 결과:", result);
-            // 프롬프트 피드백 확인 (차단 여부 등)
             if (result.promptFeedback) {
                 console.error("프롬프트 피드백:", result.promptFeedback);
                 return res.status(400).send(`데이터 생성에 실패했습니다. API 차단 사유: ${result.promptFeedback.blockReason}`);
@@ -141,17 +143,19 @@ app.post('/api/upload', upload.single('schedule_file'), async (req, res) => {
             return res.status(500).send('Gemini API에서 유효한 응답을 받지 못했습니다.');
         }
         
-        const jsonText = response.text().trim();
+        // 5. Gemini 응답(JSON) 파싱
+        const responseText = response.text();
+        const jsonString = responseText.replace(/```json|```/g, '').trim();
         
         let scheduleData;
         try {
-            scheduleData = JSON.parse(jsonText);
+            scheduleData = JSON.parse(jsonString);
         } catch (e) {
-            console.error("Gemini가 반환한 텍스트가 유효한 JSON이 아닙니다:", jsonText);
+            console.error("Gemini가 반환한 텍스트가 유효한 JSON이 아닙니다:", jsonString);
             return res.status(500).send('데이터 형식 변환에 실패했습니다. Gemini가 반환한 내용을 확인하세요.');
         }
 
-        // 4. SQLite3에 데이터 저장
+        // 6. SQLite3에 데이터 저장
         const db = new sqlite3.Database('./travel_agency.db');
         let saved_count = 0;
         
