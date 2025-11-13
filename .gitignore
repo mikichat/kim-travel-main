@@ -1,3 +1,13 @@
 air1/code_sandbox_light_70958ee4_1762915877.zip
 backend/node_modules
-backend/travel_agency.db
+
+# Environment variables
+**/.env
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Uploaded files
+backend/uploads/
