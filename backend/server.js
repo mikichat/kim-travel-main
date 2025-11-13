@@ -84,6 +84,17 @@ async function getLatestFlashModel(apiKey) {
 app.use(cors()); // CORS 허용
 app.use(express.json({ limit: '10mb' })); // JSON 요청 본문 파싱 (용량 제한 10MB)
 
+// --- 프론트엔드 통합: 정적 파일 제공 ---
+// 프로젝트 루트 디렉토리를 정적 파일 경로로 설정
+const publicPath = path.join(__dirname, '..');
+app.use(express.static(publicPath));
+
+// 기본 경로 접속 시 index.html 제공
+app.get('/', (req, res) => {
+    res.sendFile(path.join(publicPath, 'index.html'));
+});
+// --- 프론트엔드 통합 종료 ---
+
 
 // --- Gemini가 추가한 API 엔드포인트 시작 ---
 
