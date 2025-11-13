@@ -361,8 +361,11 @@ function loadSavedPackages() {
                 <button class="btn btn-sm btn-info" onclick="viewPackage('${pkg.id}')">
                     <i class="fas fa-eye"></i> 보기
                 </button>
-                <button class="btn btn-sm btn-success" onclick="printPackage('${pkg.id}')">
-                    <i class="fas fa-print"></i> 출력
+                <button class="btn btn-sm btn-success" onclick="printItinerary('${pkg.id}')">
+                    <i class="fas fa-file-alt"></i> 일정표
+                </button>
+                <button class="btn btn-sm btn-warning" style="background:#ff9800;" onclick="printQuote('${pkg.id}')">
+                    <i class="fas fa-file-invoice"></i> 견적서
                 </button>
                 <button class="btn btn-sm btn-primary" onclick="editPackage('${pkg.id}')">
                     <i class="fas fa-edit"></i> 수정
@@ -664,8 +667,13 @@ function editPackage(id) {
     showToast('수정 모드로 전환되었습니다', 'info');
 }
 
-// Print package
-function printPackage(id) {
+// Print itinerary (일정표)
+function printItinerary(id) {
+    window.open(`export_itinerary.html?id=${id}`, '_blank');
+}
+
+// Print quote (견적서)
+function printQuote(id) {
     window.open(`print_template.html?id=${id}`, '_blank');
 }
 

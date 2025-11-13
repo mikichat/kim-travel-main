@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>여행 일정표</title>
+    <style>
+        @media print {
+            @page {
+                size: A4;
+                margin: 10mm;
+            }
+            .no-print {
+                display: none !important;
+            }
+            body {
+                background: white !important;
+            }
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Malgun Gothic', '맑은 고딕', sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+
+        .no-print {
+            text-align: center;
+            margin-bottom: 20px;
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .btn {
+            padding: 12px 30px;
+            margin: 0 5px;
+            border: none;
+            border-radius: 5px;
+            font-size: 14px;
+            cursor: pointer;
+            font-family: 'Malgun Gothic', sans-serif;
+            transition: all 0.3s;
+        }
+
+        .btn-print {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .btn-print:hover {
+            background: #45a049;
+        }
+
+        .btn-back {
+            background: #666;
+            color: white;
+        }
+
+        .btn-back:hover {
+            background: #555;
+        }
+
+        .btn-save {
+            background: #2196F3;
+            color: white;
+        }
+
+        .btn-save:hover {
+            background: #0b7dda;
+        }
+
+        .page {
+            width: 210mm;
+            min-height: 297mm;
+            background: white;
+            margin: 0 auto 20px;
+            padding: 15mm;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            page-break-after: always;
+        }
+
+        .page:last-child {
+            page-break-after: auto;
+        }
+
+        /* 헤더 */
+        .header {
+            border-bottom: 1px solid #999;
+            padding-bottom: 3mm;
+            margin-bottom: 5mm;
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 3mm;
+        }
+
+        .company-info {
+            font-size: 9pt;
+            color: #666;
+        }
+
+        .header h1 {
+            text-align: center;
+            font-size: 24pt;
+            color: #333;
+            margin: 5mm 0;
+        }
+
+        /* 기본 정보 테이블 */
+        .info-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 5mm;
+            font-size: 10pt;
+        }
+
+        .info-table th {
+            background: #f3ebe1;
+            padding: 8px;
+            border: 1px solid #bbb;
+            text-align: center;
+            font-weight: bold;
+            width: 20%;
+        }
+
+        .info-table td {
+            padding: 8px;
+            border: 1px solid #bbb;
+        }
+
+        .info-table .price {
+            color: #c00;
+            font-weight: bold;
+            font-size: 11pt;
+            text-align: right;
+        }
+
+        /* 여행 조건 */
+        .section-title {
+            background: #333;
+            color: white;
+            padding: 6px;
+            text-align: center;
+            font-size: 11pt;
+            font-weight: bold;
+            margin: 5mm 0 3mm 0;
+        }
+
+        .condition-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 5mm;
+            font-size: 9pt;
+        }
+
+        .condition-table th {
+            background: #f3ebe1;
+            padding: 6px;
+            border: 1px solid #bbb;
+            width: 18%;
+            font-weight: bold;
+        }
+
+        .condition-table td {
+            padding: 6px;
+            border: 1px solid #bbb;
+        }
+
+        .condition-table td.note {
+            font-size: 8.5pt;
+            line-height: 1.4;
+        }
+
+        /* 일정표 */
+        .itinerary-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 3mm;
+            font-size: 9pt;
+        }
+
+        .itinerary-table th {
+            background: #f3ebe1;
+            padding: 5px;
+            border: 1px solid #999;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .itinerary-table td {
+            padding: 6px;
+            border: 1px solid #999;
+            vertical-align: top;
+        }
+
+        .itinerary-table .day-col {
+            width: 8%;
+            text-align: center;
+            font-weight: bold;
+            background: #f9f9f9;
+        }
+
+        .itinerary-table .date-col {
+            width: 12%;
+            text-align: center;
+        }
+
+        .itinerary-table .region-col {
+            width: 15%;
+        }
+
+        .itinerary-table .transport-col {
+            width: 15%;
+            font-size: 8.5pt;
+        }
+
+        .itinerary-table .time-col {
+            width: 10%;
+            text-align: center;
+            font-size: 8.5pt;
+        }
+
+        .itinerary-table .schedule-col {
+            width: 25%;
+            line-height: 1.4;
+            white-space: pre-line;
+        }
+
+        .itinerary-table .meals-col {
+            width: 8%;
+            text-align: center;
+        }
+
+        .itinerary-table .hotel-col {
+            width: 12%;
+            font-size: 8.5pt;
+        }
+
+        /* Footer */
+        .footer {
+            margin-top: 8mm;
+            padding-top: 3mm;
+            border-top: 1px solid #999;
+            text-align: center;
+            font-size: 9pt;
+        }
+
+        .footer-text {
+            margin-bottom: 8px;
+        }
+
+        .footer-company {
+            font-size: 12pt;
+            font-weight: bold;
+            margin: 5mm 0;
+        }
+
+        .footer-address {
+            font-size: 8pt;
+            color: #666;
+        }
+
+        /* 포함/불포함 박스 */
+        .include-box {
+            border: 2px solid #333;
+            padding: 5mm;
+            margin: 3mm 0;
+            font-size: 9pt;
+        }
+
+        .include-box h3 {
+            font-size: 10pt;
+            margin-bottom: 2mm;
+            color: #333;
+        }
+
+        .include-box ul {
+            margin-left: 5mm;
+            line-height: 1.6;
+        }
+
+        .include-box .col-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 5mm;
+        }
+
+        /* 주의사항 박스 */
+        .notice-box {
+            background: #fffbf0;
+            border: 2px solid #ffa500;
+            padding: 5mm;
+            margin: 3mm 0;
+            font-size: 9pt;
+            line-height: 1.6;
+        }
+
+        .notice-box h3 {
+            color: #ff6600;
+            margin-bottom: 2mm;
+            font-size: 10pt;
+        }
+    </style>
+</head>
+<body>
+    <div class="no-print">
+        <button class="btn btn-print" onclick="window.print()">🖨️ 인쇄하기</button>
+        <button class="btn btn-save" onclick="saveAsHTML()">💾 HTML 저장</button>
+        <button class="btn btn-back" onclick="window.close()">← 돌아가기</button>
+    </div>
+
+    <div class="page" id="printContent">
+        <!-- 헤더 -->
+        <div class="header">
+            <div class="header-top">
+                <div style="flex: 1;"></div>
+                <div class="company-info">
+                    담당자: <span id="manager">김국진</span> <span id="contact">010-2662-9009</span>
+                </div>
+            </div>
+            <h1>여 행 일 정 표</h1>
+        </div>
+
+        <!-- 기본 정보 -->
+        <table class="info-table">
+            <tr>
+                <th>단체명</th>
+                <td colspan="3" id="packageName"></td>
+            </tr>
+            <tr>
+                <th>일자</th>
+                <td colspan="3" id="travelDates"></td>
+            </tr>
+            <tr>
+                <th>여행지</th>
+                <td colspan="3" id="destination"></td>
+            </tr>
+            <tr>
+                <th>1인 여행요금</th>
+                <td id="airline"></td>
+                <td id="flightInfo"></td>
+                <td class="price" id="price"></td>
+            </tr>
+        </table>
+
+        <!-- 여행 조건 -->
+        <div class="section-title">❙ 여 행 조 건 ❙</div>
+        <table class="condition-table">
+            <tr>
+                <th>항공료</th>
+                <td colspan="2">전 일정에 명시된 항공료</td>
+            </tr>
+            <tr>
+                <th>숙박</th>
+                <td colspan="2">일정에 있는 숙박 포함 (2인 1실 기준)</td>
+            </tr>
+            <tr>
+                <th>식사</th>
+                <td colspan="2">일정에 있는 식사 포함</td>
+            </tr>
+            <tr>
+                <th>교통편</th>
+                <td colspan="2">일정에 따른 차량 이용 교통 포함</td>
+            </tr>
+            <tr>
+                <th>관광</th>
+                <td colspan="2">전 일정에 명시된 관광 비용 포함</td>
+            </tr>
+            <tr>
+                <th>여행자 보험</th>
+                <td colspan="2">여행 기간 해외 여행자 보험 가입</td>
+            </tr>
+            <tr>
+                <th>기타 세금</th>
+                <td colspan="2">공항 이용료, 출국세, 입국세 포함</td>
+            </tr>
+            <tr>
+                <th>비고 사항</th>
+                <td colspan="2" class="note" id="notes">
+                    ○ 상기 일정은 기상악화나 현지 사정으로 인하여 변동될 수 있습니다.<br>
+                    ○ 현금 결제 조건입니다.<br>
+                    ○ 식사 시 음료(주류) 및 식사 추가는 불포함
+                </td>
+            </tr>
+        </table>
+
+        <!-- 일정표 -->
+        <div class="section-title">❙ 여 행 일 정 ❙</div>
+        <table class="itinerary-table">
+            <thead>
+                <tr>
+                    <th class="day-col">일차</th>
+                    <th class="date-col">일자</th>
+                    <th class="region-col">지역</th>
+                    <th class="transport-col">교통편</th>
+                    <th class="time-col">시간</th>
+                    <th class="schedule-col">일정</th>
+                    <th class="meals-col">식사</th>
+                    <th class="hotel-col">숙박</th>
+                </tr>
+            </thead>
+            <tbody id="itineraryBody">
+            </tbody>
+        </table>
+
+        <!-- 포함/불포함 사항 -->
+        <div class="include-box">
+            <div class="col-2">
+                <div>
+                    <h3>✓ 포함 사항</h3>
+                    <div id="includedItems" style="white-space: pre-line; line-height: 1.6;"></div>
+                </div>
+                <div>
+                    <h3>✗ 불포함 사항</h3>
+                    <div id="excludedItems" style="white-space: pre-line; line-height: 1.6;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <div class="footer-text">
+                위와 같이 여행 일정을 제출합니다.
+            </div>
+            <div class="footer-text">
+                <span id="printDate"></span>
+            </div>
+            <div class="footer-company">
+                (유) 여 행 세 상  대 표 이 사
+            </div>
+            <div class="footer-address">
+                A: 전주시 완산구 서신동 856-1번지 | T: 063)271-9090 | F: 063)271-9030
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // URL에서 패키지 ID 가져오기
+        const urlParams = new URLSearchParams(window.location.search);
+        const packageId = urlParams.get('id');
+
+        if (packageId) {
+            loadAndDisplay(packageId);
+        } else {
+            alert('패키지 ID가 없습니다.');
+            window.close();
+        }
+
+        function loadAndDisplay(id) {
+            const stored = localStorage.getItem('hanatour_packages');
+            if (!stored) {
+                alert('저장된 데이터가 없습니다.');
+                return;
+            }
+
+            const packages = JSON.parse(stored);
+            const pkg = packages.find(p => p.id === id);
+
+            if (!pkg) {
+                alert('패키지를 찾을 수 없습니다.');
+                return;
+            }
+
+            displayPackage(pkg);
+        }
+
+        function displayPackage(pkg) {
+            // 기본 정보
+            document.getElementById('packageName').textContent = pkg.basicInfo.packageName || '';
+
+            // 일자
+            if (pkg.departureDates && pkg.departureDates.length > 0) {
+                const dates = pkg.departureDates.map(d => d.date).filter(d => d);
+                if (dates.length > 0) {
+                    const firstDate = dates[0];
+                    const lastDate = dates[dates.length - 1];
+                    document.getElementById('travelDates').textContent =
+                        `${formatDate(firstDate)} ~ ${formatDate(lastDate)} (${pkg.basicInfo.duration || ''})`;
+                } else {
+                    document.getElementById('travelDates').textContent = pkg.basicInfo.duration || '';
+                }
+            } else {
+                document.getElementById('travelDates').textContent = pkg.basicInfo.duration || '';
+            }
+
+            document.getElementById('destination').textContent = pkg.basicInfo.destination || '';
+            document.getElementById('airline').textContent = pkg.basicInfo.airline || '';
+
+            // 항공편 정보
+            if (pkg.itinerary && pkg.itinerary.length > 0) {
+                const firstDay = pkg.itinerary[0];
+                const lastDay = pkg.itinerary[pkg.itinerary.length - 1];
+                let flightInfo = '';
+
+                if (firstDay.transport && firstDay.time) {
+                    flightInfo += `${firstDay.region || ''} ${firstDay.transport} (${firstDay.time})`;
+                }
+                if (lastDay.transport && lastDay.transport !== firstDay.transport) {
+                    flightInfo += ` / ${lastDay.region || ''} ${lastDay.transport}`;
+                    if (lastDay.time) flightInfo += ` (${lastDay.time})`;
+                }
+                document.getElementById('flightInfo').textContent = flightInfo;
+            }
+
+            // 가격
+            const price = parseInt(pkg.pricing.priceAdult) || 0;
+            document.getElementById('price').textContent = price.toLocaleString() + '원';
+
+            // 일정표
+            const tbody = document.getElementById('itineraryBody');
+            tbody.innerHTML = pkg.itinerary.map(item => `
+                <tr>
+                    <td class="day-col">DAY ${item.day}</td>
+                    <td class="date-col">${item.date ? formatDate(item.date) : '-'}</td>
+                    <td class="region-col">${item.region || '-'}</td>
+                    <td class="transport-col">${item.transport || '-'}</td>
+                    <td class="time-col">${item.time || '-'}</td>
+                    <td class="schedule-col">${item.schedule || '-'}</td>
+                    <td class="meals-col">${item.meals || '-'}</td>
+                    <td class="hotel-col">${item.accommodation || '-'}</td>
+                </tr>
+            `).join('');
+
+            // 포함/불포함
+            document.getElementById('includedItems').textContent = pkg.included || '일정에 명시된 내용';
+            document.getElementById('excludedItems').textContent = pkg.excluded || '개인 경비';
+
+            // 날짜
+            const today = new Date();
+            document.getElementById('printDate').textContent =
+                `${today.getFullYear()}년 ${String(today.getMonth() + 1).padStart(2, '0')}월 ${String(today.getDate()).padStart(2, '0')}일`;
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '';
+            const date = new Date(dateStr);
+            const month = date.getMonth() + 1;
+            const day = date.getDate();
+            const weekday = ['일', '월', '화', '수', '목', '금', '토'][date.getDay()];
+            return `${month}월 ${day}일(${weekday})`;
+        }
+
+        function saveAsHTML() {
+            const content = document.getElementById('printContent').outerHTML;
+            const fullHTML = `<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>여행 일정표</title>
+    <style>
+        ${document.querySelector('style').innerHTML}
+    </style>
+</head>
+<body>
+    ${content}
+</body>
+</html>`;
+
+            const blob = new Blob([fullHTML], { type: 'text/html;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+
+            const packageName = document.getElementById('packageName').textContent;
+            const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
+            a.download = `여행일정표_${packageName}_${today}.html`;
+
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
