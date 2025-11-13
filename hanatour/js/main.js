@@ -111,13 +111,27 @@ function addItinerary() {
                 <i class="fas fa-times"></i>
             </button>
         </div>
-        <div class="form-group">
-            <label>일정 제목</label>
-            <input type="text" class="itinerary-title" placeholder="예: 인천 → 광저우 이동">
+        <div class="form-grid">
+            <div class="form-group">
+                <label>일자</label>
+                <input type="date" class="itinerary-date" placeholder="일자">
+            </div>
+            <div class="form-group">
+                <label>지역</label>
+                <input type="text" class="itinerary-region" placeholder="예: 인천 → 다낭">
+            </div>
+            <div class="form-group">
+                <label>교통편</label>
+                <input type="text" class="itinerary-transport" placeholder="예: OZ123편 또는 전용차량">
+            </div>
+            <div class="form-group">
+                <label>시간</label>
+                <input type="text" class="itinerary-time" placeholder="예: 09:00 또는 09:00-18:00">
+            </div>
         </div>
         <div class="form-group">
-            <label>상세 일정</label>
-            <textarea class="itinerary-details" rows="4" placeholder="상세 일정을 입력하세요"></textarea>
+            <label>일정 내용</label>
+            <textarea class="itinerary-schedule" rows="4" placeholder="상세 일정을 입력하세요"></textarea>
         </div>
         <div class="form-grid">
             <div class="form-group">
@@ -256,12 +270,25 @@ function collectItinerary() {
     const itinerary = [];
     items.forEach(item => {
         const day = item.querySelector('.day-number').value;
-        const title = item.querySelector('.itinerary-title').value;
-        const details = item.querySelector('.itinerary-details').value;
+        const date = item.querySelector('.itinerary-date').value;
+        const region = item.querySelector('.itinerary-region').value;
+        const transport = item.querySelector('.itinerary-transport').value;
+        const time = item.querySelector('.itinerary-time').value;
+        const schedule = item.querySelector('.itinerary-schedule').value;
         const meals = item.querySelector('.itinerary-meals').value;
         const accommodation = item.querySelector('.itinerary-accommodation').value;
-        if (title) {
-            itinerary.push({ day, title, details, meals, accommodation });
+
+        if (region || schedule) {
+            itinerary.push({
+                day,
+                date,
+                region,
+                transport,
+                time,
+                schedule,
+                meals,
+                accommodation
+            });
         }
     });
     return itinerary;
@@ -333,6 +360,9 @@ function loadSavedPackages() {
             <div class="package-actions">
                 <button class="btn btn-sm btn-info" onclick="viewPackage('${pkg.id}')">
                     <i class="fas fa-eye"></i> 보기
+                </button>
+                <button class="btn btn-sm btn-success" onclick="printPackage('${pkg.id}')">
+                    <i class="fas fa-print"></i> 출력
                 </button>
                 <button class="btn btn-sm btn-primary" onclick="editPackage('${pkg.id}')">
                     <i class="fas fa-edit"></i> 수정
@@ -407,8 +437,11 @@ function viewPackage(id) {
                 <h4><i class="fas fa-map-marked-alt"></i> 일정</h4>
                 ${pkg.itinerary.map(i => `
                     <div class="itinerary-detail">
-                        <h5>DAY ${i.day}: ${i.title}</h5>
-                        <p>${i.details.replace(/\n/g, '<br>')}</p>
+                        <h5>DAY ${i.day}${i.date ? ` (${i.date})` : ''}</h5>
+                        ${i.region ? `<p><strong><i class="fas fa-map-marker-alt"></i> 지역:</strong> ${i.region}</p>` : ''}
+                        ${i.transport ? `<p><strong><i class="fas fa-bus"></i> 교통편:</strong> ${i.transport}</p>` : ''}
+                        ${i.time ? `<p><strong><i class="fas fa-clock"></i> 시간:</strong> ${i.time}</p>` : ''}
+                        ${i.schedule ? `<p style="white-space: pre-line; margin-top: 10px;"><strong>일정:</strong><br>${i.schedule}</p>` : ''}
                         <div class="itinerary-meta">
                             <span><i class="fas fa-utensils"></i> ${i.meals || '-'}</span>
                             <span><i class="fas fa-bed"></i> ${i.accommodation || '-'}</span>
@@ -555,22 +588,36 @@ function editPackage(id) {
                     <i class="fas fa-times"></i>
                 </button>
             </div>
-            <div class="form-group">
-                <label>일정 제목</label>
-                <input type="text" class="itinerary-title" value="${item.title}">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>일자</label>
+                    <input type="date" class="itinerary-date" value="${item.date || ''}">
+                </div>
+                <div class="form-group">
+                    <label>지역</label>
+                    <input type="text" class="itinerary-region" value="${item.region || ''}">
+                </div>
+                <div class="form-group">
+                    <label>교통편</label>
+                    <input type="text" class="itinerary-transport" value="${item.transport || ''}">
+                </div>
+                <div class="form-group">
+                    <label>시간</label>
+                    <input type="text" class="itinerary-time" value="${item.time || ''}">
+                </div>
             </div>
             <div class="form-group">
-                <label>상세 일정</label>
-                <textarea class="itinerary-details" rows="4">${item.details}</textarea>
+                <label>일정 내용</label>
+                <textarea class="itinerary-schedule" rows="4">${item.schedule || ''}</textarea>
             </div>
             <div class="form-grid">
                 <div class="form-group">
                     <label>식사</label>
-                    <input type="text" class="itinerary-meals" value="${item.meals}">
+                    <input type="text" class="itinerary-meals" value="${item.meals || ''}">
                 </div>
                 <div class="form-group">
                     <label>숙박</label>
-                    <input type="text" class="itinerary-accommodation" value="${item.accommodation}">
+                    <input type="text" class="itinerary-accommodation" value="${item.accommodation || ''}">
                 </div>
             </div>
         `;
@@ -615,6 +662,11 @@ function editPackage(id) {
     // Set editing flag
     document.getElementById('packageForm').dataset.editingId = id;
     showToast('수정 모드로 전환되었습니다', 'info');
+}
+
+// Print package
+function printPackage(id) {
+    window.open(`print_template.html?id=${id}`, '_blank');
 }
 
 // Delete package
@@ -681,13 +733,27 @@ function resetForm() {
                     <i class="fas fa-times"></i>
                 </button>
             </div>
-            <div class="form-group">
-                <label>일정 제목</label>
-                <input type="text" class="itinerary-title" placeholder="예: 인천 → 광저우 이동">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>일자</label>
+                    <input type="date" class="itinerary-date" placeholder="일자">
+                </div>
+                <div class="form-group">
+                    <label>지역</label>
+                    <input type="text" class="itinerary-region" placeholder="예: 인천 → 다낭">
+                </div>
+                <div class="form-group">
+                    <label>교통편</label>
+                    <input type="text" class="itinerary-transport" placeholder="예: OZ123편 또는 전용차량">
+                </div>
+                <div class="form-group">
+                    <label>시간</label>
+                    <input type="text" class="itinerary-time" placeholder="예: 09:00 또는 09:00-18:00">
+                </div>
             </div>
             <div class="form-group">
-                <label>상세 일정</label>
-                <textarea class="itinerary-details" rows="4" placeholder="상세 일정을 입력하세요"></textarea>
+                <label>일정 내용</label>
+                <textarea class="itinerary-schedule" rows="4" placeholder="상세 일정을 입력하세요"></textarea>
             </div>
             <div class="form-grid">
                 <div class="form-group">
@@ -754,18 +820,27 @@ function downloadSampleExcel() {
             '호텔등급2': '',
             '호텔지역2': '',
             'DAY1일차': 1,
-            'DAY1제목': '인천 → 광저우 이동',
-            'DAY1상세': '인천공항 출발 → 광저우 도착 후 호텔 체크인',
-            'DAY1식사': '기내식',
+            'DAY1일자': '2024-12-15',
+            'DAY1지역': '인천 → 광저우',
+            'DAY1교통편': 'OZ369편',
+            'DAY1시간': '08:20-11:30',
+            'DAY1일정': '인천공항 출발 → 광저우 도착 후 호텔 체크인 → 석식',
+            'DAY1식사': '기내식/석',
             'DAY1숙박': '광저우 그랜드 호텔',
             'DAY2일차': 2,
-            'DAY2제목': '광저우 시내 관광',
-            'DAY2상세': '천단공원 → 사면불산 → 북경로 쇼핑',
+            'DAY2일자': '2024-12-16',
+            'DAY2지역': '광저우',
+            'DAY2교통편': '전용차량',
+            'DAY2시간': '09:00-18:00',
+            'DAY2일정': '호텔 조식 후\n천단공원 관광\n사면불산 관광\n북경로 쇼핑\n석식 후 호텔 복귀',
             'DAY2식사': '조/중/석',
             'DAY2숙박': '광저우 그랜드 호텔',
             'DAY3일차': '',
-            'DAY3제목': '',
-            'DAY3상세': '',
+            'DAY3일자': '',
+            'DAY3지역': '',
+            'DAY3교통편': '',
+            'DAY3시간': '',
+            'DAY3일정': '',
             'DAY3식사': '',
             'DAY3숙박': '',
             '포함사항': '왕복 항공권\n전 일정 호텔 숙박\n일정상의 식사',
@@ -878,12 +953,18 @@ function convertExcelRowToPackage(row) {
         const itinerary = [];
         for (let i = 1; i <= 10; i++) {
             const day = row[`DAY${i}일차`];
-            const title = row[`DAY${i}제목`];
-            if (title) {
+            const region = row[`DAY${i}지역`];
+            const schedule = row[`DAY${i}일정`];
+
+            if (region || schedule) {
+                const dateValue = row[`DAY${i}일자`];
                 itinerary.push({
                     day: day || i,
-                    title: title,
-                    details: row[`DAY${i}상세`] || '',
+                    date: typeof dateValue === 'number' ? excelDateToJSDate(dateValue) : (dateValue || ''),
+                    region: region || '',
+                    transport: row[`DAY${i}교통편`] || '',
+                    time: row[`DAY${i}시간`] || '',
+                    schedule: schedule || '',
                     meals: row[`DAY${i}식사`] || '',
                     accommodation: row[`DAY${i}숙박`] || ''
                 });
@@ -986,10 +1067,13 @@ function exportToExcel() {
         // Add itinerary
         pkg.itinerary.forEach((item, i) => {
             row[`DAY${i + 1}일차`] = item.day;
-            row[`DAY${i + 1}제목`] = item.title;
-            row[`DAY${i + 1}상세`] = item.details;
-            row[`DAY${i + 1}식사`] = item.meals;
-            row[`DAY${i + 1}숙박`] = item.accommodation;
+            row[`DAY${i + 1}일자`] = item.date || '';
+            row[`DAY${i + 1}지역`] = item.region || '';
+            row[`DAY${i + 1}교통편`] = item.transport || '';
+            row[`DAY${i + 1}시간`] = item.time || '';
+            row[`DAY${i + 1}일정`] = item.schedule || '';
+            row[`DAY${i + 1}식사`] = item.meals || '';
+            row[`DAY${i + 1}숙박`] = item.accommodation || '';
         });
 
         // Add other fields

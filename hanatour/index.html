@@ -173,18 +173,32 @@
                                     <i class="fas fa-times"></i>
                                 </button>
                             </div>
-                            <div class="form-group">
-                                <label>일정 제목</label>
-                                <input type="text" class="itinerary-title" placeholder="예: 인천 → 광저우 이동">
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label>일자</label>
+                                    <input type="date" class="itinerary-date" placeholder="일자">
+                                </div>
+                                <div class="form-group">
+                                    <label>지역</label>
+                                    <input type="text" class="itinerary-region" placeholder="예: 인천 → 다낭">
+                                </div>
+                                <div class="form-group">
+                                    <label>교통편</label>
+                                    <input type="text" class="itinerary-transport" placeholder="예: OZ123편 또는 전용차량">
+                                </div>
+                                <div class="form-group">
+                                    <label>시간</label>
+                                    <input type="text" class="itinerary-time" placeholder="예: 09:00 또는 09:00-18:00">
+                                </div>
                             </div>
                             <div class="form-group">
-                                <label>상세 일정</label>
-                                <textarea class="itinerary-details" rows="4" placeholder="상세 일정을 입력하세요"></textarea>
+                                <label>일정 내용</label>
+                                <textarea class="itinerary-schedule" rows="4" placeholder="상세 일정을 입력하세요&#10;예:&#10;- 인천공항 출발&#10;- 다낭 도착 후 호텔 체크인&#10;- 석식 후 자유시간"></textarea>
                             </div>
                             <div class="form-grid">
                                 <div class="form-group">
                                     <label>식사</label>
-                                    <input type="text" class="itinerary-meals" placeholder="예: 조/중/석">
+                                    <input type="text" class="itinerary-meals" placeholder="예: 조/중/석 또는 기내식">
                                 </div>
                                 <div class="form-group">
                                     <label>숙박</label>
