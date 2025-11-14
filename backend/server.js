@@ -303,6 +303,105 @@ initializeDatabase().then(db => {
         }
     });
 
+    // === 일정 관리 전용 API 엔드포인트 ===
+
+    // 모든 일정 조회
+    app.get('/api/schedules', async (req, res) => {
+        try {
+            const schedules = await db.all('SELECT * FROM schedules ORDER BY event_date DESC, id DESC');
+            res.json(schedules);
+        } catch (error) {
+            res.status(500).json({ error: `일정 조회 실패: ${error.message}` });
+        }
+    });
+
+    // 특정 일정 조회
+    app.get('/api/schedules/:id', async (req, res) => {
+        const { id } = req.params;
+        try {
+            const schedule = await db.get('SELECT * FROM schedules WHERE id = ?', [id]);
+            if (schedule) {
+                res.json(schedule);
+            } else {
+                res.status(404).json({ error: '일정을 찾을 수 없습니다.' });
+            }
+        } catch (error) {
+            res.status(500).json({ error: `일정 조회 실패: ${error.message}` });
+        }
+    });
+
+    // 새 일정 추가
+    app.post('/api/schedules', async (req, res) => {
+        const { event_name, event_date, location, description } = req.body;
+
+        if (!event_name) {
+            return res.status(400).json({ error: '일정명은 필수입니다.' });
+        }
+
+        try {
+            const result = await db.run(
+                'INSERT INTO schedules (event_name, event_date, location, description) VALUES (?, ?, ?, ?)',
+                [event_name, event_date || null, location || null, description || null]
+            );
+
+            const newSchedule = await db.get('SELECT * FROM schedules WHERE id = ?', [result.lastID]);
+            res.status(201).json(newSchedule);
+        } catch (error) {
+            res.status(500).json({ error: `일정 추가 실패: ${error.message}` });
+        }
+    });
+
+    // 일정 수정
+    app.put('/api/schedules/:id', async (req, res) => {
+        const { id } = req.params;
+        const { event_name, event_date, location, description } = req.body;
+
+        if (!event_name) {
+            return res.status(400).json({ error: '일정명은 필수입니다.' });
+        }
+
+        try {
+            const result = await db.run(
+                'UPDATE schedules SET event_name = ?, event_date = ?, location = ?, description = ? WHERE id = ?',
+                [event_name, event_date || null, location || null, description || null, id]
+            );
+
+            if (result.changes === 0) {
+                return res.status(404).json({ error: '일정을 찾을 수 없습니다.' });
+            }
+
+            const updatedSchedule = await db.get('SELECT * FROM schedules WHERE id = ?', [id]);
+            res.json(updatedSchedule);
+        } catch (error) {
+            res.status(500).json({ error: `일정 수정 실패: ${error.message}` });
+        }
+    });
+
+    // 일정 삭제
+    app.delete('/api/schedules/:id', async (req, res) => {
+        const { id } = req.params;
+        try {
+            const result = await db.run('DELETE FROM schedules WHERE id = ?', [id]);
+            if (result.changes === 0) {
+                return res.status(404).json({ error: '일정을 찾을 수 없습니다.' });
+            }
+            res.status(204).send();
+        } catch (error) {
+            res.status(500).json({ error: `일정 삭제 실패: ${error.message}` });
+        }
+    });
+
+    // 날짜별 일정 조회
+    app.get('/api/schedules/date/:date', async (req, res) => {
+        const { date } = req.params;
+        try {
+            const schedules = await db.all('SELECT * FROM schedules WHERE event_date = ? ORDER BY id DESC', [date]);
+            res.json(schedules);
+        } catch (error) {
+            res.status(500).json({ error: `일정 조회 실패: ${error.message}` });
+        }
+    });
+
     // 서버 시작
     app.listen(port, () => {
         console.log(`백엔드 서버가 http://localhost:${port} 에서 실행 중입니다.`);

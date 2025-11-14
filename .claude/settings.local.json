@@ -1,7 +1,14 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(npm start)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(curl:*)",
+      "Bash(taskkill /F /PID 13876)",
+      "Bash(taskkill:*)",
+      "Bash(powershell \"Stop-Process -Id 13876 -Force\")"
     ],
     "deny": [],
     "ask": []
