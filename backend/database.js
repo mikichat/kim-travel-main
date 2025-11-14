@@ -90,10 +90,13 @@ async function initializeDatabase() {
 
             CREATE TABLE IF NOT EXISTS schedules (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                event_name TEXT,
+                group_name TEXT,
                 event_date TEXT,
                 location TEXT,
-                description TEXT,
+                transport TEXT,
+                time TEXT,
+                schedule TEXT,
+                meals TEXT,
                 created_at TEXT DEFAULT (datetime('now','localtime'))
             );
         `);

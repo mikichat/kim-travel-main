@@ -469,6 +469,11 @@
         <header>
             <h1><i class="fas fa-calendar-alt"></i> 일정 관리</h1>
             <div class="nav-buttons">
+                <input type="text" id="headerGroupName" placeholder="그룹명 입력..." style="padding: 10px 15px; border: 2px solid #ddd; border-radius: 8px; font-size: 14px; width: 200px;">
+                <button class="btn btn-warning" onclick="document.getElementById('excelUpload').click()">
+                    <i class="fas fa-file-upload"></i> 엑셀 업로드
+                </button>
+                <input type="file" id="excelUpload" accept=".xlsx,.xls" style="display: none;" onchange="handleExcelUpload(event)">
                 <a href="index.html" class="btn btn-secondary"><i class="fas fa-home"></i> 메인으로</a>
                 <button class="btn btn-success" onclick="showAddForm()"><i class="fas fa-plus"></i> 새 일정</button>
             </div>
@@ -536,23 +541,38 @@
                     <input type="hidden" id="scheduleId">
 
                     <div class="form-group">
-                        <label><i class="fas fa-tag"></i> 일정명</label>
-                        <input type="text" id="eventName" required placeholder="일정명을 입력하세요">
+                        <label><i class="fas fa-users"></i> 그룹명</label>
+                        <input type="text" id="groupName" placeholder="예: 하노이 골프단, 제주 워크샵">
                     </div>
 
                     <div class="form-group">
-                        <label><i class="fas fa-calendar"></i> 날짜</label>
+                        <label><i class="fas fa-calendar"></i> 일자</label>
                         <input type="date" id="eventDate">
                     </div>
 
                     <div class="form-group">
-                        <label><i class="fas fa-map-marker-alt"></i> 장소</label>
-                        <input type="text" id="location" placeholder="장소를 입력하세요">
+                        <label><i class="fas fa-map-marker-alt"></i> 지역</label>
+                        <input type="text" id="location" placeholder="예: 인천, 하노이">
                     </div>
 
                     <div class="form-group">
-                        <label><i class="fas fa-align-left"></i> 상세 내용</label>
-                        <textarea id="description" placeholder="일정의 상세 내용을 입력하세요"></textarea>
+                        <label><i class="fas fa-bus"></i> 교통편</label>
+                        <input type="text" id="transport" placeholder="예: OZ123편, 전용차량">
+                    </div>
+
+                    <div class="form-group">
+                        <label><i class="fas fa-clock"></i> 시간</label>
+                        <input type="text" id="time" placeholder="예: 09:00, 09:00-18:00">
+                    </div>
+
+                    <div class="form-group">
+                        <label><i class="fas fa-list"></i> 일정 <span style="color: red;">*</span></label>
+                        <textarea id="schedule" required placeholder="세부 일정을 입력하세요"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label><i class="fas fa-utensils"></i> 식사</label>
+                        <input type="text" id="meals" placeholder="예: 조:호텔식, 중:현지식, 석:한식">
                     </div>
 
                     <div style="display: flex; gap: 10px;">
@@ -645,7 +665,7 @@
                             <th class="col-location">지역</th>
                             <th class="col-transport">교통편</th>
                             <th class="col-time">시간</th>
-                            <th class="col-schedule">세부일정</th>
+                            <th class="col-schedule">일정</th>
                             <th class="col-meals">식사</th>
                             <th class="col-actions">작업</th>
                         </tr>
@@ -659,12 +679,6 @@
                 const rowCount = schedules.length;
 
                 schedules.forEach((schedule, index) => {
-                    // description에서 정보 추출
-                    const transportInfo = extractInfo(schedule.description, '교통편');
-                    const timeInfo = extractInfo(schedule.description, '시간');
-                    const mealsInfo = extractInfo(schedule.description, '식사');
-                    const mainSchedule = getMainSchedule(schedule.description);
-
                     tableHTML += `<tr>`;
 
                     // 첫 번째 행에만 날짜 표시 (rowspan 사용)
@@ -681,17 +695,17 @@
                             ${escapeHtml(schedule.location || '-')}
                         </td>
                         <td class="col-transport">
-                            ${transportInfo || '-'}
+                            ${escapeHtml(schedule.transport || '-')}
                         </td>
                         <td class="col-time">
-                            ${timeInfo || '-'}
+                            ${escapeHtml(schedule.time || '-')}
                         </td>
                         <td class="col-schedule">
-                            <strong>${escapeHtml(schedule.event_name)}</strong><br>
-                            ${mainSchedule}
+                            ${schedule.group_name ? `<div style="background: #667eea; color: white; padding: 3px 8px; border-radius: 5px; display: inline-block; margin-bottom: 5px; font-size: 11px;"><i class="fas fa-users"></i> ${escapeHtml(schedule.group_name)}</div><br>` : ''}
+                            ${escapeHtml(schedule.schedule || '-').replace(/\n/g, '<br>')}
                         </td>
                         <td class="col-meals">
-                            ${mealsInfo || '-'}
+                            ${escapeHtml(schedule.meals || '-')}
                         </td>
                         <td class="col-actions">
                             <div class="schedule-actions">
@@ -716,48 +730,6 @@
             list.innerHTML = tableHTML;
         }
 
-        // description에서 특정 정보 추출
-        function extractInfo(description, key) {
-            if (!description) return '';
-            const regex = new RegExp(`${key}:\\s*([^\\n]+)`, 'i');
-            const match = description.match(regex);
-            return match ? escapeHtml(match[1].trim()) : '';
-        }
-
-        // description에서 메인 일정 추출 (시간, 식사 제외)
-        function getMainSchedule(description) {
-            if (!description) return '-';
-
-            // 시간:, 식사:, 교통편:, HOTEL: 등의 라벨이 있는 줄 제거
-            const lines = description.split('\n');
-            const mainLines = lines.filter(line => {
-                const trimmed = line.trim();
-                return trimmed &&
-                       !trimmed.match(/^(시간|식사|교통편|HOTEL):/i) &&
-                       trimmed !== '일정:';
-            });
-
-            // 일정: 다음에 오는 내용만 추출
-            let scheduleContent = mainLines.join('<br>');
-
-            // "일정:" 라벨이 있으면 그 이후 내용만
-            if (description.includes('일정:')) {
-                const afterSchedule = description.split('일정:')[1];
-                if (afterSchedule) {
-                    scheduleContent = afterSchedule
-                        .split('\n')
-                        .filter(line => {
-                            const trimmed = line.trim();
-                            return trimmed &&
-                                   !trimmed.match(/^(시간|식사|교통편|HOTEL):/i);
-                        })
-                        .map(line => escapeHtml(line.trim()))
-                        .join('<br>');
-                }
-            }
-
-            return scheduleContent || escapeHtml(description);
-        }
 
         // 캘린더 렌더링
         function renderCalendar() {
@@ -830,10 +802,13 @@
             event.preventDefault();
 
             const scheduleData = {
-                event_name: document.getElementById('eventName').value,
+                group_name: document.getElementById('groupName').value || null,
                 event_date: document.getElementById('eventDate').value || null,
                 location: document.getElementById('location').value || null,
-                description: document.getElementById('description').value || null
+                transport: document.getElementById('transport').value || null,
+                time: document.getElementById('time').value || null,
+                schedule: document.getElementById('schedule').value,
+                meals: document.getElementById('meals').value || null
             };
 
             const id = document.getElementById('scheduleId').value;
@@ -866,10 +841,13 @@
 
             document.getElementById('formTitle').textContent = '일정 수정';
             document.getElementById('scheduleId').value = schedule.id;
-            document.getElementById('eventName').value = schedule.event_name;
+            document.getElementById('groupName').value = schedule.group_name || '';
             document.getElementById('eventDate').value = schedule.event_date || '';
             document.getElementById('location').value = schedule.location || '';
-            document.getElementById('description').value = schedule.description || '';
+            document.getElementById('transport').value = schedule.transport || '';
+            document.getElementById('time').value = schedule.time || '';
+            document.getElementById('schedule').value = schedule.schedule || '';
+            document.getElementById('meals').value = schedule.meals || '';
 
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
@@ -904,7 +882,23 @@
         function showAddForm() {
             resetForm();
             window.scrollTo({ top: 0, behavior: 'smooth' });
-            document.getElementById('eventName').focus();
+            document.getElementById('schedule').focus();
+        }
+
+        // 엑셀 업로드 처리
+        function handleExcelUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const groupName = document.getElementById('headerGroupName').value;
+            if (!groupName) {
+                showToast('그룹명을 입력해주세요.', 'error');
+                event.target.value = '';
+                return;
+            }
+
+            showToast('엑셀 업로드 기능은 /schedule-upload 페이지를 참조하세요.', 'info');
+            event.target.value = '';
         }
 
         // 일정 필터링
@@ -916,9 +910,11 @@
 
             if (searchTerm) {
                 filtered = filtered.filter(s =>
-                    s.event_name.toLowerCase().includes(searchTerm) ||
+                    (s.group_name && s.group_name.toLowerCase().includes(searchTerm)) ||
+                    (s.schedule && s.schedule.toLowerCase().includes(searchTerm)) ||
                     (s.location && s.location.toLowerCase().includes(searchTerm)) ||
-                    (s.description && s.description.toLowerCase().includes(searchTerm))
+                    (s.transport && s.transport.toLowerCase().includes(searchTerm)) ||
+                    (s.meals && s.meals.toLowerCase().includes(searchTerm))
                 );
             }
 

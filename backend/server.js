@@ -332,16 +332,24 @@ initializeDatabase().then(db => {
 
     // 새 일정 추가
     app.post('/api/schedules', async (req, res) => {
-        const { event_name, event_date, location, description } = req.body;
+        const { group_name, event_date, location, transport, time, schedule, meals } = req.body;
 
-        if (!event_name) {
-            return res.status(400).json({ error: '일정명은 필수입니다.' });
+        if (!schedule) {
+            return res.status(400).json({ error: '일정은 필수입니다.' });
         }
 
         try {
             const result = await db.run(
-                'INSERT INTO schedules (event_name, event_date, location, description) VALUES (?, ?, ?, ?)',
-                [event_name, event_date || null, location || null, description || null]
+                'INSERT INTO schedules (group_name, event_date, location, transport, time, schedule, meals) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                [
+                    group_name || null,
+                    event_date || null,
+                    location || null,
+                    transport || null,
+                    time || null,
+                    schedule,
+                    meals || null
+                ]
             );
 
             const newSchedule = await db.get('SELECT * FROM schedules WHERE id = ?', [result.lastID]);
@@ -354,16 +362,25 @@ initializeDatabase().then(db => {
     // 일정 수정
     app.put('/api/schedules/:id', async (req, res) => {
         const { id } = req.params;
-        const { event_name, event_date, location, description } = req.body;
+        const { group_name, event_date, location, transport, time, schedule, meals } = req.body;
 
-        if (!event_name) {
-            return res.status(400).json({ error: '일정명은 필수입니다.' });
+        if (!schedule) {
+            return res.status(400).json({ error: '일정은 필수입니다.' });
         }
 
         try {
             const result = await db.run(
-                'UPDATE schedules SET event_name = ?, event_date = ?, location = ?, description = ? WHERE id = ?',
-                [event_name, event_date || null, location || null, description || null, id]
+                'UPDATE schedules SET group_name = ?, event_date = ?, location = ?, transport = ?, time = ?, schedule = ?, meals = ? WHERE id = ?',
+                [
+                    group_name || null,
+                    event_date || null,
+                    location || null,
+                    transport || null,
+                    time || null,
+                    schedule,
+                    meals || null,
+                    id
+                ]
             );
 
             if (result.changes === 0) {
