@@ -96,9 +96,15 @@
 
         .main-content {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 400px 1fr;
             gap: 20px;
             margin-bottom: 20px;
+        }
+
+        @media (max-width: 1200px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
         }
 
         .card {
@@ -154,54 +160,108 @@
         .schedule-list {
             max-height: 600px;
             overflow-y: auto;
+            overflow-x: auto;
         }
 
-        .schedule-item {
-            background: #f8f9fa;
-            padding: 15px;
-            margin-bottom: 15px;
-            border-radius: 10px;
-            border-left: 4px solid #667eea;
+        .schedule-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            background: white;
+        }
+
+        .schedule-table thead {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background: white;
+        }
+
+        .schedule-table th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 8px;
+            text-align: center;
+            font-weight: 600;
+            border: 1px solid #5568d3;
+            white-space: nowrap;
+        }
+
+        .schedule-table td {
+            padding: 10px 8px;
+            border: 1px solid #ddd;
+            vertical-align: top;
+        }
+
+        .schedule-table tbody tr {
             transition: all 0.3s;
         }
 
-        .schedule-item:hover {
-            transform: translateX(5px);
-            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+        .schedule-table tbody tr:hover {
+            background: #f8f9fa;
+            transform: scale(1.01);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
 
-        .schedule-item h3 {
+        .schedule-table tbody tr:nth-child(even) {
+            background: #fafafa;
+        }
+
+        .schedule-table tbody tr:nth-child(even):hover {
+            background: #f0f0f0;
+        }
+
+        .col-date {
+            width: 8%;
+            text-align: center;
+            font-weight: 600;
+            color: #667eea;
+            background: #f8f9ff;
+            border-right: 2px solid #667eea !important;
+        }
+
+        .col-location {
+            width: 10%;
             color: #333;
-            font-size: 18px;
-            margin-bottom: 10px;
+            font-weight: 500;
         }
 
-        .schedule-meta {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 10px;
-            font-size: 13px;
+        .col-transport {
+            width: 12%;
+            color: #666;
+            font-size: 12px;
+        }
+
+        .col-time {
+            width: 8%;
+            text-align: center;
             color: #666;
         }
 
-        .schedule-meta span {
-            display: flex;
-            align-items: center;
-            gap: 5px;
+        .col-schedule {
+            width: 38%;
+            line-height: 1.6;
+            color: #555;
+            white-space: pre-line;
         }
 
-        .schedule-description {
-            color: #555;
-            font-size: 14px;
-            line-height: 1.6;
-            margin-bottom: 10px;
-            white-space: pre-line;
+        .col-meals {
+            width: 10%;
+            text-align: center;
+            color: #666;
+            font-size: 12px;
+        }
+
+        .col-actions {
+            width: 8%;
+            text-align: center;
         }
 
         .schedule-actions {
             display: flex;
-            gap: 8px;
-            margin-top: 10px;
+            gap: 5px;
+            justify-content: center;
+            flex-wrap: wrap;
         }
 
         .btn-sm {
@@ -316,9 +376,19 @@
 
         .empty-message {
             text-align: center;
-            padding: 40px;
+            padding: 60px 40px;
             color: #999;
             font-size: 16px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border: 2px dashed #ddd;
+        }
+
+        .empty-message i {
+            font-size: 48px;
+            display: block;
+            margin-bottom: 15px;
+            color: #ccc;
         }
 
         .toast {
@@ -545,41 +615,148 @@
             const displaySchedules = filteredSchedules || schedules;
 
             if (displaySchedules.length === 0) {
-                list.innerHTML = '<div class="empty-message">등록된 일정이 없습니다.</div>';
+                list.innerHTML = '<div class="empty-message"><i class="fas fa-calendar-times"></i>등록된 일정이 없습니다.</div>';
                 return;
             }
 
-            // 날짜순 정렬
+            // 날짜순 정렬 (내림차순 - 최신 날짜가 위로)
             const sortedSchedules = [...displaySchedules].sort((a, b) => {
                 if (!a.event_date) return 1;
                 if (!b.event_date) return -1;
                 return new Date(b.event_date) - new Date(a.event_date);
             });
 
-            list.innerHTML = sortedSchedules.map(schedule => `
-                <div class="schedule-item">
-                    <h3>${escapeHtml(schedule.event_name)}</h3>
-                    <div class="schedule-meta">
-                        ${schedule.event_date ? `
-                            <span><i class="fas fa-calendar"></i> ${formatDate(schedule.event_date)}</span>
-                        ` : ''}
-                        ${schedule.location ? `
-                            <span><i class="fas fa-map-marker-alt"></i> ${escapeHtml(schedule.location)}</span>
-                        ` : ''}
-                    </div>
-                    ${schedule.description ? `
-                        <div class="schedule-description">${escapeHtml(schedule.description)}</div>
-                    ` : ''}
-                    <div class="schedule-actions">
-                        <button class="btn btn-info btn-sm" onclick="editSchedule(${schedule.id})">
-                            <i class="fas fa-edit"></i> 수정
-                        </button>
-                        <button class="btn btn-danger btn-sm" onclick="deleteSchedule(${schedule.id})">
-                            <i class="fas fa-trash"></i> 삭제
-                        </button>
-                    </div>
-                </div>
-            `).join('');
+            // 날짜별로 그룹화
+            const groupedByDate = {};
+            sortedSchedules.forEach(schedule => {
+                const date = schedule.event_date || 'no-date';
+                if (!groupedByDate[date]) {
+                    groupedByDate[date] = [];
+                }
+                groupedByDate[date].push(schedule);
+            });
+
+            // 테이블 생성
+            let tableHTML = `
+                <table class="schedule-table">
+                    <thead>
+                        <tr>
+                            <th class="col-date">일자</th>
+                            <th class="col-location">지역</th>
+                            <th class="col-transport">교통편</th>
+                            <th class="col-time">시간</th>
+                            <th class="col-schedule">세부일정</th>
+                            <th class="col-meals">식사</th>
+                            <th class="col-actions">작업</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            // 날짜별로 행 생성
+            Object.keys(groupedByDate).forEach(date => {
+                const schedules = groupedByDate[date];
+                const rowCount = schedules.length;
+
+                schedules.forEach((schedule, index) => {
+                    // description에서 정보 추출
+                    const transportInfo = extractInfo(schedule.description, '교통편');
+                    const timeInfo = extractInfo(schedule.description, '시간');
+                    const mealsInfo = extractInfo(schedule.description, '식사');
+                    const mainSchedule = getMainSchedule(schedule.description);
+
+                    tableHTML += `<tr>`;
+
+                    // 첫 번째 행에만 날짜 표시 (rowspan 사용)
+                    if (index === 0) {
+                        tableHTML += `
+                            <td class="col-date" rowspan="${rowCount}">
+                                ${date !== 'no-date' ? formatDate(date) : '-'}
+                            </td>
+                        `;
+                    }
+
+                    tableHTML += `
+                        <td class="col-location">
+                            ${escapeHtml(schedule.location || '-')}
+                        </td>
+                        <td class="col-transport">
+                            ${transportInfo || '-'}
+                        </td>
+                        <td class="col-time">
+                            ${timeInfo || '-'}
+                        </td>
+                        <td class="col-schedule">
+                            <strong>${escapeHtml(schedule.event_name)}</strong><br>
+                            ${mainSchedule}
+                        </td>
+                        <td class="col-meals">
+                            ${mealsInfo || '-'}
+                        </td>
+                        <td class="col-actions">
+                            <div class="schedule-actions">
+                                <button class="btn btn-info btn-sm" onclick="editSchedule(${schedule.id})">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn btn-danger btn-sm" onclick="deleteSchedule(${schedule.id})">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    `;
+                });
+            });
+
+            tableHTML += `
+                    </tbody>
+                </table>
+            `;
+
+            list.innerHTML = tableHTML;
+        }
+
+        // description에서 특정 정보 추출
+        function extractInfo(description, key) {
+            if (!description) return '';
+            const regex = new RegExp(`${key}:\\s*([^\\n]+)`, 'i');
+            const match = description.match(regex);
+            return match ? escapeHtml(match[1].trim()) : '';
+        }
+
+        // description에서 메인 일정 추출 (시간, 식사 제외)
+        function getMainSchedule(description) {
+            if (!description) return '-';
+
+            // 시간:, 식사:, 교통편:, HOTEL: 등의 라벨이 있는 줄 제거
+            const lines = description.split('\n');
+            const mainLines = lines.filter(line => {
+                const trimmed = line.trim();
+                return trimmed &&
+                       !trimmed.match(/^(시간|식사|교통편|HOTEL):/i) &&
+                       trimmed !== '일정:';
+            });
+
+            // 일정: 다음에 오는 내용만 추출
+            let scheduleContent = mainLines.join('<br>');
+
+            // "일정:" 라벨이 있으면 그 이후 내용만
+            if (description.includes('일정:')) {
+                const afterSchedule = description.split('일정:')[1];
+                if (afterSchedule) {
+                    scheduleContent = afterSchedule
+                        .split('\n')
+                        .filter(line => {
+                            const trimmed = line.trim();
+                            return trimmed &&
+                                   !trimmed.match(/^(시간|식사|교통편|HOTEL):/i);
+                        })
+                        .map(line => escapeHtml(line.trim()))
+                        .join('<br>');
+                }
+            }
+
+            return scheduleContent || escapeHtml(description);
         }
 
         // 캘린더 렌더링
