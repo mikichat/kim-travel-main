@@ -17,7 +17,9 @@
       "Bash(powershell \"Get-Process | Where-Object {$_ProcessName -eq ''node''} | Select-Object Id,ProcessName\")",
       "Bash(powershell \"Stop-Process -Id 12204 -Force\")",
       "Bash(del test_schedule.json update_schedule.json)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(powershell \"Stop-Process -Id 21028 -Force\")",
+      "Bash(powershell \"Stop-Process -Id 3968 -Force\")"
     ],
     "deny": [],
     "ask": []

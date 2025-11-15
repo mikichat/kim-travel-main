@@ -15,6 +15,9 @@ require('dotenv').config();
 const app = express();
 const port = 5000;
 
+// 전역 데이터베이스 인스턴스
+let dbInstance = null;
+
 // --- Gemini가 추가한 설정 시작 ---
 
 // .env 파일에서 API 키 설정
@@ -101,35 +104,53 @@ app.get('/', (req, res) => {
 // POST /api/upload: Excel 파일을 받아 처리하는 메인 로직
 app.post('/api/upload', upload.single('schedule_file'), async (req, res) => {
     if (!req.file) {
-        return res.status(400).send('파일이 업로드되지 않았습니다.');
+        return res.status(400).json({ error: '파일이 업로드되지 않았습니다.' });
     }
 
     const filePath = req.file.path;
+    const groupName = req.body.group_name;
+
+    if (!groupName) {
+        fs.unlinkSync(filePath);
+        return res.status(400).json({ error: '그룹명을 입력해주세요.' });
+    }
 
     try {
-        // 1. XLSX 파일을 읽어 'HTML' 텍스트로 변환 (info.txt 방식 적용)
+        // 1. XLSX 파일을 읽어 'HTML' 텍스트로 변환
         const workbook = xlsx.readFile(filePath);
-        const sheetName = workbook.SheetNames[0]; // 첫 번째 시트
+        const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
         const htmlData = xlsx.utils.sheet_to_html(worksheet, { header: '' });
 
-        // 2. Gemini 모델 및 프롬프트 설정 (동적으로 최신 모델 선택)
+        // 2. Gemini 모델 및 프롬프트 설정
         const modelName = await getLatestFlashModel(process.env.GEMINI_API_KEY);
         const model = genAI.getGenerativeModel({ model: modelName });
         const prompt = `
-            다음은 HTML <table> 형식의 일정표 데이터입니다.
+            다음은 HTML <table> 형식의 여행 일정표 데이터입니다.
             이 HTML 구조(특히 colspan과 rowspan으로 병합된 셀)를 주의 깊게 분석해서,
-            각 일정 항목을 'event_name', 'event_date', 'location', 'description' 키를 가진 JSON 배열로 만들어주세요.
+            각 일정 항목을 다음 키를 가진 JSON 배열로 만들어주세요:
 
-            - 날짜는 'YYYY-MM-DD' 형식으로 통일해 주세요.
-            - 병합된 셀에 걸쳐 있는 일정은 날짜별로 개별 항목으로 나누거나, 시작일과 종료일을 명시해 주세요.
-            - JSON 데이터 외에 다른 설명(예: \`\`\`json)은 절대 추가하지 마세요.
+            {
+                "event_date": "YYYY-MM-DD 형식의 날짜",
+                "location": "지역/장소",
+                "transport": "교통편 (예: OZ123편, 전용차량 등)",
+                "time": "시간 (예: 09:00, 09:00-18:00 등)",
+                "schedule": "세부 일정 내용",
+                "meals": "식사 정보 (예: 조:호텔식, 중:현지식, 석:한식)"
+            }
+
+            중요한 규칙:
+            - 날짜는 반드시 'YYYY-MM-DD' 형식으로 통일해 주세요.
+            - 병합된 셀은 각 행마다 개별 항목으로 나누어 주세요.
+            - 일정 내용에서 시간, 교통편, 식사 정보를 추출해서 해당 필드에 넣어주세요.
+            - JSON 배열만 반환하고, \`\`\`json 같은 마크다운은 절대 추가하지 마세요.
+            - 모든 필드는 문자열(string) 타입이어야 합니다.
 
             [HTML 데이터]
             ${htmlData}
         `;
 
-        // 3. Gemini API 호출 (텍스트 프롬프트 전송)
+        // 3. Gemini API 호출
         const result = await model.generateContent(prompt);
         const response = result.response;
 
@@ -137,58 +158,80 @@ app.post('/api/upload', upload.single('schedule_file'), async (req, res) => {
             console.error("Gemini API 응답이 없습니다. 전체 결과:", result);
             if (result.promptFeedback) {
                 console.error("프롬프트 피드백:", result.promptFeedback);
-                return res.status(400).send(`데이터 생성에 실패했습니다. API 차단 사유: ${result.promptFeedback.blockReason}`);
+                return res.status(400).json({
+                    error: `데이터 생성에 실패했습니다. API 차단 사유: ${result.promptFeedback.blockReason}`
+                });
             }
-            return res.status(500).send('Gemini API에서 유효한 응답을 받지 못했습니다.');
+            return res.status(500).json({ error: 'Gemini API에서 유효한 응답을 받지 못했습니다.' });
         }
-        
+
         // 4. Gemini 응답(JSON) 파싱
         const responseText = response.text();
         const jsonString = responseText.replace(/```json|```/g, '').trim();
-        
+
         let scheduleData;
         try {
             scheduleData = JSON.parse(jsonString);
         } catch (e) {
             console.error("Gemini가 반환한 텍스트가 유효한 JSON이 아닙니다:", jsonString);
-            return res.status(500).send('데이터 형식 변환에 실패했습니다. Gemini가 반환한 내용을 확인하세요.');
+            return res.status(500).json({
+                error: '데이터 형식 변환에 실패했습니다.',
+                details: jsonString.substring(0, 200)
+            });
         }
 
-        // 5. SQLite3에 데이터 저장
-        const db = new sqlite3.Database('./travel_agency.db');
+        // 5. 데이터베이스에 저장 (새 스키마 사용)
+        if (!dbInstance) {
+            return res.status(500).json({ error: '데이터베이스가 초기화되지 않았습니다.' });
+        }
+
         let saved_count = 0;
-        
-        const stmt = db.prepare("INSERT INTO schedules (event_name, event_date, location, description) VALUES (?, ?, ?, ?)");
+        const errors = [];
 
         for (const item of scheduleData) {
-            stmt.run(
-                item.event_name,
-                item.event_date,
-                item.location,
-                item.description,
-                (err) => {
-                    if (!err) saved_count++;
-                }
-            );
+            try {
+                await dbInstance.run(
+                    'INSERT INTO schedules (group_name, event_date, location, transport, time, schedule, meals) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                    [
+                        groupName,
+                        item.event_date || null,
+                        item.location || null,
+                        item.transport || null,
+                        item.time || null,
+                        item.schedule || null,
+                        item.meals || null
+                    ]
+                );
+                saved_count++;
+            } catch (err) {
+                console.error('일정 저장 중 오류:', err);
+                errors.push({ item, error: err.message });
+            }
         }
 
-        stmt.finalize((err) => {
-            db.close();
-            if (err) {
-                return res.status(500).send('데이터베이스 저장 중 오류가 발생했습니다.');
-            }
-            res.send(`성공: 총 ${scheduleData.length}개의 일정 중 ${saved_count}개가 DB에 저장되었습니다.`);
+        // 6. 응답 반환
+        res.json({
+            success: true,
+            message: `총 ${scheduleData.length}개의 일정 중 ${saved_count}개가 저장되었습니다.`,
+            saved: saved_count,
+            total: scheduleData.length,
+            errors: errors.length > 0 ? errors : undefined,
+            group_name: groupName
         });
 
     } catch (error) {
         console.error("업로드 처리 중 오류 발생:", error);
-        if (error instanceof SyntaxError) {
-            console.error("Gemini가 유효한 JSON을 반환하지 않았습니다. 응답 텍스트:", error.message);
-        }
-        res.status(500).send('서버 내부 오류가 발생했습니다.');
+        res.status(500).json({
+            error: '서버 내부 오류가 발생했습니다.',
+            details: error.message
+        });
     } finally {
         // 업로드된 파일 삭제
-        fs.unlinkSync(filePath);
+        try {
+            fs.unlinkSync(filePath);
+        } catch (e) {
+            console.error('임시 파일 삭제 실패:', e);
+        }
     }
 });
 
@@ -197,6 +240,7 @@ app.post('/api/upload', upload.single('schedule_file'), async (req, res) => {
 
 // 데이터베이스 초기화 및 서버 시작
 initializeDatabase().then(db => {
+    dbInstance = db; // 전역 변수에 할당
     console.log('API 서버가 데이터베이스와 연결되었습니다.');
 
     // 모든 테이블에 대한 RESTful API 엔드포인트
