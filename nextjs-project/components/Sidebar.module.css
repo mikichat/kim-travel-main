@@ -1,0 +1,62 @@
+/* components/Sidebar.module.css */
+.sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 260px; /* var(--sidebar-width) 대신 고정값 사용 */
+    height: 100vh;
+    background: #1e293b; /* var(--dark-bg) 대신 고정값 사용 */
+    color: #ffffff; /* var(--white) 대신 고정값 사용 */
+    overflow-y: auto;
+    transition: all 0.3s ease;
+    z-index: 1000;
+}
+
+.header {
+    padding: 2rem 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.header i {
+    font-size: 2rem;
+    color: #3b82f6; /* var(--primary-color) */
+}
+
+.header h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+.nav {
+    padding: 1rem 0;
+}
+
+.navItem {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.5rem;
+    color: rgba(255, 255, 255, 0.7);
+    text-decoration: none;
+    transition: all 0.3s ease;
+    border-left: 3px solid transparent;
+}
+
+.navItem:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #ffffff;
+}
+
+.active {
+    background: rgba(59, 130, 246, 0.1);
+    color: #ffffff;
+    border-left-color: #3b82f6; /* var(--primary-color) */
+}
+
+.navItem i {
+    font-size: 1.2rem;
+    width: 24px;
+}
